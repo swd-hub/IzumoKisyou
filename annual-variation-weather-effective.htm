@@ -749,11 +749,19 @@ function initializeTable(data) {
     const tempMin = parseFloat(document.getElementById("tempMin").value);
     const tempMax = parseFloat(document.getElementById("tempMax").value);
     const cumulativeResults = calculateCumulativeValues(data, startDate, endDate, tempMin, tempMax);
-   
-//console.log('cumulativeResults',cumulativeResults);
 
+    // 年ごとのテーブルとグラフを更新
     createCumulativeTable(cumulativeResults);
     createIndividualCharts(cumulativeResults);
+
+    // ▼▼▼ 集計結果テーブルも更新 ▼▼▼
+    // 入力期間でフィルタして集計
+    const filteredData = data.filter(d => {
+        const date = new Date(d.date);
+        return date >= startDate && date <= endDate;
+    });
+    const cumulativeData = calculateCumulativeDataWithTable(filteredData, startDate, endDate, tempMin, tempMax);
+    updateTable(cumulativeData.table);
 }
 
 //グラフの描画関数
