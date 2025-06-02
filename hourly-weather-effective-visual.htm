@@ -544,7 +544,7 @@ function updateDateRangeInfo(parsedData) {
     // フォーマット
     const f = d => d.toISOString().split('T')[0];
     document.getElementById("dateRangeInfo").textContent =
-        `CSVの日付範囲：${f(minDate)} ～ ${f(maxDate)}`;
+        `気象データの日付範囲：${f(minDate)} ～ ${f(maxDate)}`;
 } 
 
 
