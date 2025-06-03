@@ -117,9 +117,6 @@ input[type="date"], input[type="file"], input[type="number"] {
   cursor: pointer;
   margin-left: 4px; /* 任意で左に余白を追加 */
 }
-#fileInput{
- width:500px;
-}
 #chartcanvas
 {
   width: 80%;
@@ -141,8 +138,8 @@ input[type="date"], input[type="file"], input[type="number"] {
         <!--button onclick="window.open('images/WetherOption.png', '_blank')">過去の気象データ・ダウンロードで選ぶ表示オプション</button-->
     </div>
     <br>
-    <h5>ファイルの選択ボタンにドラッグ＆ドロップすることで取り込み可能</h5>
-    <input type="file" id="fileInput" accept=".csv">
+<!-- ファイル選択ボタンの代わりに日付範囲を表示するタグを追加 -->
+<div id="date-range"></div>
     <div class="container">
         <form>
             <label for="cultivationStartDate">開始日:</label>
@@ -181,11 +178,45 @@ input[type="date"], input[type="file"], input[type="number"] {
 </div>
 </div>
     <script>
+// ファイル選択用のイベントリスナや関数は削除
+
+document.addEventListener('DOMContentLoaded', () => {
+  fetch('出雲日別値.csv')
+    .then(response => response.text())
+    .then(csvText => {
+      // CSVをパース（例: カンマ区切り、1行目はヘッダ）
+      const rows = csvText.split('\n').filter(row => row.trim() !== '');
+      const header = rows[0].split(',');
+      const dataRows = rows.slice(1);
+
+      // 日付カラムのインデックスを特定（例: '日付'というカラム名の場合）
+      const dateIndex = header.findIndex(h => h.includes('日付'));
+      const dates = dataRows.map(row => row.split(',')[dateIndex]).filter(Boolean);
+
+      // 日付を昇順ソートして範囲を取得
+      const sortedDates = dates.slice().sort();
+      const minDate = sortedDates[0];
+      const maxDate = sortedDates[sortedDates.length - 1];
+
+      // 日付範囲を表示
+      document.getElementById('date-range').textContent = `データ範囲: ${minDate} ～ ${maxDate}`;
+
+      // ここで既存のグラフ描画機能やデータ処理を呼び出す
+      drawWeatherChart(dataRows, header); // 仮の関数名
+    })
+    .catch(error => {
+      document.getElementById('date-range').textContent = 'CSVの読み込みに失敗しました';
+      console.error(error);
+    });
+});
+
+// 既存のグラフ描画やデータ処理関数はそのまま使う
+        
 function updateMainTitle() {
     const startDate = document.getElementById("cultivationStartDate").value;
     const endDate = document.getElementById("cultivationEndDate").value;
-    const fileInput = document.getElementById("fileInput");
-    const file = fileInput.files[0];
+    //const fileInput = document.getElementById("fileInput");
+    //const file = fileInput.files[0];
 
     if (startDate && endDate && file) {
         const startYear = new Date(startDate).getFullYear();
@@ -198,7 +229,7 @@ function updateMainTitle() {
 }
 
 // ファイル選択または日付変更後にタイトルを更新する
-document.getElementById("fileInput").addEventListener("change", updateMainTitle);
+//document.getElementById("fileInput").addEventListener("change", updateMainTitle);
 document.getElementById("cultivationStartDate").addEventListener("change", updateMainTitle);
 document.getElementById("cultivationEndDate").addEventListener("change", updateMainTitle);
    
@@ -224,7 +255,7 @@ document.getElementById("cultivationEndDate").addEventListener("change", updateM
         let cumulativeTempChart, cumulativePrecChart, cumulativeSunChart;
 
         document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('fileInput').addEventListener('change', handleFileSelect, false);
+            //document.getElementById('fileInput').addEventListener('change', handleFileSelect, false);
             document.getElementById('updateButton').addEventListener('click', handleFileSelect, false);
         });
 
@@ -369,44 +400,33 @@ function prepareComparisonData(data, startDate, endDate) {
 }
 
 //グラフデータの抽出
-function handleFileSelect() {
-    const file = document.getElementById("fileInput").files[0];
-    if (!file) return;
+fetch('出雲日別値.csv')
+  .then(response => response.arrayBuffer())
+  .then(buffer => {
+    // Shift-JIS→UTF8変換が必要ならここで行う
+    const utf8Content = shiftJISToUTF8(buffer);
+    const data = parseCSV(utf8Content);
 
-    const reader = new FileReader();
-    reader.onload = function (e) {
-        const utf8Content = shiftJISToUTF8(e.target.result);
-        const data = parseCSV(utf8Content);
+    const startDate = new Date(document.getElementById("cultivationStartDate").value);
+    const endDate = new Date(document.getElementById("cultivationEndDate").value);
 
-        console.log("data", data);
+    // あとはhandleFileSelect内と同様
+    const graphStart = new Date(startDate);
+    const graphEnd = new Date(endDate);
 
-        const startDate = new Date(document.getElementById("cultivationStartDate").value);
-        const endDate = new Date(document.getElementById("cultivationEndDate").value);
+    const avgStart = new Date(startDate);
+    avgStart.setFullYear(avgStart.getFullYear() - 1);
+    const avgEnd = new Date(avgStart);
+    avgEnd.setDate(avgEnd.getDate() + 364);
 
-        // 実測データの範囲を設定
-        const graphStart = new Date(startDate); // 開始日
-        const graphEnd = new Date(endDate); // 終了日
+    const minDate = Math.min(graphStart, avgStart);
+    const maxDate = Math.max(graphEnd, avgEnd);
 
-        // 平年値の範囲：1年前から1年間
-        const avgStart = new Date(startDate);
-        avgStart.setFullYear(avgStart.getFullYear() - 1);
-        const avgEnd = new Date(avgStart);
-        avgEnd.setDate(avgEnd.getDate() + 364); // 365日分
-
-        // 実測値と平年値を両方含む範囲を計算
-        const minDate = Math.min(graphStart, avgStart);
-        const maxDate = Math.max(graphEnd, avgEnd);
-
-        // データをフィルタリング
-        const filteredData = filterData(data, minDate, maxDate);
-
-        // 栽培開始日を基準に平年値365日を作成し、終了日も考慮
-        const chartData = prepareComparisonData(filteredData, startDate, endDate); // 修正: ここで終了日を渡す
-        updateDailyCharts(chartData);
-        document.getElementById("chartcanvas").style.display = "block";
-    };
-    reader.readAsArrayBuffer(file);
-}
+    const filteredData = filterData(data, minDate, maxDate);
+    const chartData = prepareComparisonData(filteredData, startDate, endDate);
+    updateDailyCharts(chartData);
+    document.getElementById("chartcanvas").style.display = "block";
+  });
 
 //グラフ描画
 function updateDailyCharts(chartData) {
