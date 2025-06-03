@@ -147,8 +147,7 @@ input[type="date"], input[type="file"], input[type="number"] {
             <label for="cultivationEndDate">終了日（最終日）:</label>
             <input type="date"  id="cultivationEndDate">
 <!-- ファイル・日付を更新したあとに押すボタン -->
-<button type="button" id="updateButton" onclick="handleFileSelect()">データ更新</button>
-        </form>
+<button type="button" id="updateButton" onclick="updateData()">データ更新</button>       </form>
     </div>
 <div id="chartcanvas" style="margin-top: 5em; display: none;">
 <h3>日データ</h3>
@@ -400,33 +399,39 @@ function prepareComparisonData(data, startDate, endDate) {
 }
 
 //グラフデータの抽出
-fetch('出雲日別値.csv')
-  .then(response => response.arrayBuffer())
-  .then(buffer => {
-    // Shift-JIS→UTF8変換が必要ならここで行う
-    const utf8Content = shiftJISToUTF8(buffer);
-    const data = parseCSV(utf8Content);
+function updateData() {
+  fetch('出雲日別値.csv')
+    .then(response => response.arrayBuffer())
+    .then(buffer => {
+      // Shift-JIS→UTF8変換が必要ならここで行う
+      const utf8Content = shiftJISToUTF8(buffer);
+      const data = parseCSV(utf8Content);
 
-    const startDate = new Date(document.getElementById("cultivationStartDate").value);
-    const endDate = new Date(document.getElementById("cultivationEndDate").value);
+      const startDate = new Date(document.getElementById("cultivationStartDate").value);
+      const endDate = new Date(document.getElementById("cultivationEndDate").value);
 
-    // あとはhandleFileSelect内と同様
-    const graphStart = new Date(startDate);
-    const graphEnd = new Date(endDate);
+      // ここからはhandleFileSelect内と同様
+      const graphStart = new Date(startDate);
+      const graphEnd = new Date(endDate);
 
-    const avgStart = new Date(startDate);
-    avgStart.setFullYear(avgStart.getFullYear() - 1);
-    const avgEnd = new Date(avgStart);
-    avgEnd.setDate(avgEnd.getDate() + 364);
+      const avgStart = new Date(startDate);
+      avgStart.setFullYear(avgStart.getFullYear() - 1);
+      const avgEnd = new Date(avgStart);
+      avgEnd.setDate(avgEnd.getDate() + 364);
 
-    const minDate = Math.min(graphStart, avgStart);
-    const maxDate = Math.max(graphEnd, avgEnd);
+      const minDate = Math.min(graphStart, avgStart);
+      const maxDate = Math.max(graphEnd, avgEnd);
 
-    const filteredData = filterData(data, minDate, maxDate);
-    const chartData = prepareComparisonData(filteredData, startDate, endDate);
-    updateDailyCharts(chartData);
-    document.getElementById("chartcanvas").style.display = "block";
-  });
+      const filteredData = filterData(data, minDate, maxDate);
+      const chartData = prepareComparisonData(filteredData, startDate, endDate);
+      updateDailyCharts(chartData);
+      document.getElementById("chartcanvas").style.display = "block";
+    })
+    .catch(error => {
+      alert('CSVの取得に失敗しました');
+      console.error(error);
+    });
+}
 
 //グラフ描画
 function updateDailyCharts(chartData) {
