@@ -156,7 +156,7 @@ input[type="date"], input[type="file"], input[type="number"] {
     縦軸最大値（気温）:
     <input type="number" id="tempMax" value="40" step="5" placeholder="例: 40">
   </label>
-  <button type="button" id="updateButton" class="GraphupdateButton" onclick="handleFileSelect()">グラフ更新</button>
+  <button type="button" id="updateButton" class="GraphupdateButton" onclick="updateData()">グラフ更新</button>
 <canvas id="dailyTempChart"></canvas>
 </div>
 <div style="margin-bottom: 3em;">
@@ -164,7 +164,7 @@ input[type="date"], input[type="file"], input[type="number"] {
     縦軸最大値（降水量）:
     <input type="number" id="precMax" value="100" step="10" placeholder="例: 100">
   </label>
-    <button type="button" id="updateButton" class="GraphupdateButton" onclick="handleFileSelect()">グラフ更新</button>
+    <button type="button" id="updateButton" class="GraphupdateButton" onclick="updateData()">グラフ更新</button>
 <canvas id="dailyPrecChart"></canvas>
 </div>
 <div style="margin-bottom: 3em;">
@@ -172,23 +172,22 @@ input[type="date"], input[type="file"], input[type="number"] {
     縦軸最大値（日照時間）観測を実施する地点のみ:
     <input type="number" id="sunMax" value="16"  step="2" placeholder="例: 15">
   </label>
-    <button type="button" id="updateButton" class="GraphupdateButton" onclick="handleFileSelect()">グラフ更新</button>
+    <button type="button" id="updateButton" class="GraphupdateButton" onclick="updateData()">グラフ更新</button>
 <canvas id="dailySunChart"></canvas>
 </div>
 </div>
     <script>
 // ファイル選択用のイベントリスナや関数は削除
-
 document.addEventListener('DOMContentLoaded', () => {
   fetch('出雲日別値.csv')
     .then(response => response.text())
     .then(csvText => {
-      // CSVをパース（例: カンマ区切り、1行目はヘッダ）
+      // CSVをパース
       const rows = csvText.split('\n').filter(row => row.trim() !== '');
       const header = rows[0].split(',');
       const dataRows = rows.slice(1);
 
-      // 日付カラムのインデックスを特定（例: '日付'というカラム名の場合）
+      // 日付カラムのインデックスを特定
       const dateIndex = header.findIndex(h => h.includes('日付'));
       const dates = dataRows.map(row => row.split(',')[dateIndex]).filter(Boolean);
 
@@ -196,12 +195,23 @@ document.addEventListener('DOMContentLoaded', () => {
       const sortedDates = dates.slice().sort();
       const minDate = sortedDates[0];
       const maxDate = sortedDates[sortedDates.length - 1];
-
-      // 日付範囲を表示
       document.getElementById('date-range').textContent = `データ範囲: ${minDate} ～ ${maxDate}`;
 
-      // ここで既存のグラフ描画機能やデータ処理を呼び出す
-      drawWeatherChart(dataRows, header); // 仮の関数名
+      // ここからグラフ用データ処理
+      // parseCSVやshiftJISToUTF8が必要ならここで実行
+      const data = parseCSV(csvText); // 例：parseCSVを使ってオブジェクト配列へ
+
+      // 必要な日付範囲等はinputや固定値から取得
+      const startDate = new Date(document.getElementById("cultivationStartDate").value);
+      const endDate = new Date(document.getElementById("cultivationEndDate").value);
+
+      // データフィルタや整形
+      const filteredData = filterData(data, startDate, endDate);
+      const chartData = prepareComparisonData(filteredData, startDate, endDate);
+
+      // グラフ描画
+      updateDailyCharts(chartData);
+      document.getElementById("chartcanvas").style.display = "block";
     })
     .catch(error => {
       document.getElementById('date-range').textContent = 'CSVの読み込みに失敗しました';
@@ -254,8 +264,8 @@ document.getElementById("cultivationEndDate").addEventListener("change", updateM
         let cumulativeTempChart, cumulativePrecChart, cumulativeSunChart;
 
         document.addEventListener('DOMContentLoaded', function() {
-            //document.getElementById('fileInput').addEventListener('change', handleFileSelect, false);
-            document.getElementById('updateButton').addEventListener('click', handleFileSelect, false);
+            //document.getElementById('fileInput').addEventListener('change', updateData, false);
+            document.getElementById('updateButton').addEventListener('click', updateData, false);
         });
 
         function shiftJISToUTF8(arrayBuffer) {
@@ -410,7 +420,7 @@ function updateData() {
       const startDate = new Date(document.getElementById("cultivationStartDate").value);
       const endDate = new Date(document.getElementById("cultivationEndDate").value);
 
-      // ここからはhandleFileSelect内と同様
+      // ここからはupdateData内と同様
       const graphStart = new Date(startDate);
       const graphEnd = new Date(endDate);
 
