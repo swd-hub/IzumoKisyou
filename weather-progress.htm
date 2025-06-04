@@ -227,7 +227,7 @@ function updateMainTitle() {
     //const fileInput = document.getElementById("fileInput");
     //const file = fileInput.files[0];
 
-    if (startDate && endDate && file) {
+    if (startDate && endDate) {
         const startYear = new Date(startDate).getFullYear();
         const endYear = new Date(endDate).getFullYear();
         const filePrefix = file.name.substring(0, 2); // ファイル名の先頭2文字
