@@ -226,15 +226,16 @@ function updateMainTitle() {
     const endDate = document.getElementById("cultivationEndDate").value;
     //const fileInput = document.getElementById("fileInput");
     //const file = fileInput.files[0];
+　　const csvUrl = '出雲日別値.csv'; // fetchで使ったURL
+   if (startDate && endDate) {
+    const startYear = new Date(startDate).getFullYear();
+    const endYear = new Date(endDate).getFullYear();
+    // ファイル名の先頭2文字を取得
+    const filePrefix = csvUrl.substring(0, 2); 
 
-    if (startDate && endDate) {
-        const startYear = new Date(startDate).getFullYear();
-        const endYear = new Date(endDate).getFullYear();
-        const filePrefix = file.name.substring(0, 2); // ファイル名の先頭2文字
-
-        const title = `${startYear}年-${endYear}年　気象経過（${filePrefix}）`;
-        document.getElementById("mainTitle").textContent = title;
-    }
+    const title = `${startYear}年-${endYear}年　気象経過（${filePrefix}）`;
+    document.getElementById("mainTitle").textContent = title;
+}
 }
 
 // ファイル選択または日付変更後にタイトルを更新する
