@@ -418,14 +418,30 @@ function updateData() {
   fetch('出雲日別値.csv')
     .then(response => response.arrayBuffer())
     .then(buffer => {
-      // Shift-JIS→UTF8変換が必要ならここで行う
       const utf8Content = shiftJISToUTF8(buffer);
       const data = parseCSV(utf8Content);
 
-      const startDate = new Date(document.getElementById("cultivationStartDate").value);
-      const endDate = new Date(document.getElementById("cultivationEndDate").value);
+      const startDateStr = document.getElementById("cultivationStartDate").value;
+      const endDateStr = document.getElementById("cultivationEndDate").value;
+      const startDate = new Date(startDateStr);
+      const endDate = new Date(endDateStr);
 
-      // ここからはhandleFileSelect内と同様
+      // --- データ範囲の計算と表示 ---
+      // data配列のdateプロパティから範囲算出
+      const validDates = data
+        .map(d => d.date)
+        .filter(dt => dt instanceof Date && !isNaN(dt));
+      if (validDates.length > 0) {
+        validDates.sort((a, b) => a - b);
+        const minDate = validDates[0];
+        const maxDate = validDates[validDates.length - 1];
+        document.getElementById('date-range').textContent =
+          `データ範囲: ${minDate.getFullYear()}-${minDate.getMonth() + 1}-${minDate.getDate()} ～ ${maxDate.getFullYear()}-${maxDate.getMonth() + 1}-${maxDate.getDate()}`;
+      } else {
+        document.getElementById('date-range').textContent = 'データ範囲: 未取得';
+      }
+
+      // --- グラフ用データ処理 ---
       const graphStart = new Date(startDate);
       const graphEnd = new Date(endDate);
 
@@ -434,16 +450,16 @@ function updateData() {
       const avgEnd = new Date(avgStart);
       avgEnd.setDate(avgEnd.getDate() + 364);
 
-      const minDate = Math.min(graphStart, avgStart);
-      const maxDate = Math.max(graphEnd, avgEnd);
+      const minFilterDate = graphStart < avgStart ? graphStart : avgStart;
+      const maxFilterDate = graphEnd > avgEnd ? graphEnd : avgEnd;
 
-      const filteredData = filterData(data, minDate, maxDate);
+      const filteredData = filterData(data, minFilterDate, maxFilterDate);
       const chartData = prepareComparisonData(filteredData, startDate, endDate);
       updateDailyCharts(chartData);
       document.getElementById("chartcanvas").style.display = "block";
     })
     .catch(error => {
-      alert('CSVの取得に失敗しました');
+      document.getElementById('date-range').textContent = 'CSVの取得に失敗しました';
       console.error(error);
     });
 }
