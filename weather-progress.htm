@@ -415,26 +415,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function updateData() {
   fetch('出雲日別値.csv')
-    .then(response => response.text())
-    .then(csvText => {
-      const rows = csvText.split('\n').filter(row => row.trim() !== '');
-      const header = rows[0].split(',');
-      // カラム名を確認！（例: '年月日'の場合はこちらに）
-      const dateIndex = header.findIndex(h => h.includes('日付')); // 必要に応じて修正
-      if (dateIndex === -1) {
-        document.getElementById('date-range').textContent = '日付カラムが見つかりません';
-        return;
-      }
-      const dates = rows.slice(1).map(row => row.split(',')[dateIndex]).filter(Boolean);
-      const sortedDates = dates.slice().sort();
-      const minDate = sortedDates[0];
-      const maxDate = sortedDates[sortedDates.length - 1];
-      document.getElementById('date-range').textContent = `データ範囲: ${minDate} ～ ${maxDate}`;
-      // 以下、グラフ描画処理
-      // ...
+    .then(response => response.arrayBuffer())
+    .then(buffer => {
+      // Shift-JIS→UTF8変換が必要ならここで行う
+      const utf8Content = shiftJISToUTF8(buffer);
+      const data = parseCSV(utf8Content);
+
+      const startDate = new Date(document.getElementById("cultivationStartDate").value);
+      const endDate = new Date(document.getElementById("cultivationEndDate").value);
+
+      // ここからはhandleFileSelect内と同様
+      const graphStart = new Date(startDate);
+      const graphEnd = new Date(endDate);
+
+      const avgStart = new Date(startDate);
+      avgStart.setFullYear(avgStart.getFullYear() - 1);
+      const avgEnd = new Date(avgStart);
+      avgEnd.setDate(avgEnd.getDate() + 364);
+
+      const minDate = Math.min(graphStart, avgStart);
+      const maxDate = Math.max(graphEnd, avgEnd);
+
+      const filteredData = filterData(data, minDate, maxDate);
+      const chartData = prepareComparisonData(filteredData, startDate, endDate);
+      updateDailyCharts(chartData);
+      document.getElementById("chartcanvas").style.display = "block";
     })
     .catch(error => {
-      document.getElementById('date-range').textContent = 'CSVの読み込みに失敗しました';
+      alert('CSVの取得に失敗しました');
       console.error(error);
     });
 }
