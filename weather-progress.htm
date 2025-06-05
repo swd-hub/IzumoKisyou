@@ -145,17 +145,17 @@ input[type="date"], input[type="file"], input[type="number"] {
             <label for="cultivationEndDate">終了日（最終日）:</label>
             <input type="date"  id="cultivationEndDate">
 <!-- ファイル・日付を更新したあとに押すボタン -->
-<button type="button" id="updateButton" onclick="handleFileSelect()">データ更新</button>
+<button type="button" id="updateButton" onclick="updateChartsByDateRange()">データ更新</button>
         </form>
     </div>
 <div id="chartcanvas" style="margin-top: 5em; display: none;">
 <h3>日データ</h3>
 <div style="margin-bottom: 3em;">
-  <label>
-    縦軸最大値（気温）:
-    <input type="number" id="tempMax" value="40" step="5" placeholder="例: 40">
-  </label>
-  <button type="button" id="updateButton" class="GraphupdateButton" onclick="handleFileSelect()">グラフ更新</button>
+<label>
+  縦軸最大値（気温）:
+  <input type="number" id="tempMax" value="40" step="5" placeholder="例: 40">
+</label>
+<button type="button" id="updateButton" class="GraphupdateButton" onclick="updateChartsByDateRange()">グラフ更新</button>
 <canvas id="dailyTempChart"></canvas>
 </div>
 <div style="margin-bottom: 3em;">
@@ -163,15 +163,15 @@ input[type="date"], input[type="file"], input[type="number"] {
     縦軸最大値（降水量）:
     <input type="number" id="precMax" value="100" step="10" placeholder="例: 100">
   </label>
-    <button type="button" id="updateButton" class="GraphupdateButton" onclick="handleFileSelect()">グラフ更新</button>
+<button type="button" id="updateButton" class="GraphupdateButton" onclick="updateChartsByDateRange()">グラフ更新</button>
 <canvas id="dailyPrecChart"></canvas>
 </div>
 <div style="margin-bottom: 3em;">
   <label>
-    縦軸最大値（日照時間）観測を実施する地点のみ:
-    <input type="number" id="sunMax" value="16"  step="2" placeholder="例: 15">
-  </label>
-    <button type="button" id="updateButton" class="GraphupdateButton" onclick="handleFileSelect()">グラフ更新</button>
+  縦軸最大値（日照時間）観測を実施する地点のみ:
+  <input type="number" id="sunMax" value="16" step="2" placeholder="例: 15">
+</label>
+<button type="button" id="updateButton" class="GraphupdateButton" onclick="updateChartsByDateRange()">グラフ更新</button>
 <canvas id="dailySunChart"></canvas>
 </div>
 </div>
@@ -265,7 +265,6 @@ document.getElementById("cultivationEndDate").addEventListener("change", updateM
         let cumulativeTempChart, cumulativePrecChart, cumulativeSunChart;
 
         document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('fileInput').addEventListener('change', handleFileSelect, false);
             document.getElementById('updateButton').addEventListener('click', handleFileSelect, false);
         });
 
@@ -434,48 +433,40 @@ function prepareComparisonData(data, startDate) {
 }
 
 //グラフデータの抽出
-function handleFileSelect() {
-    const file = document.getElementById("fileInput").files[0];
-    if (!file) return;
+// グローバル変数に全CSVデータを保持（fetchでロード済みとする）
+let globalData = []; // ページ初期化時にfetchでセットする
 
+// グラフデータの抽出（ファイル選択をやめ、globalDataを利用）
+function updateChartsByDateRange() {
+    if (!globalData.length) return; // データ未取得時は何もしない
 
-    const reader = new FileReader();
-    reader.onload = function (e) {
-        const utf8Content = shiftJISToUTF8(e.target.result);
-        const data = parseCSV(utf8Content);
+    const startDate = new Date(document.getElementById("cultivationStartDate").value);
+    const endDate = new Date(document.getElementById("cultivationEndDate").value);
 
-console.log("data",data);
+    // 実測データの範囲（グラフ用：前後に余白を持たせる）
+    const graphStart = new Date(startDate);
+    graphStart.setMonth(graphStart.getMonth() - 1);
+    const graphEnd = new Date(endDate);
+    graphEnd.setMonth(graphEnd.getMonth() + 7);
 
-        const startDate = new Date(document.getElementById("cultivationStartDate").value);
-        const endDate = new Date(document.getElementById("cultivationEndDate").value);
+    // 平年値の範囲：1年前のstartDateから365日分
+    const avgStart = new Date(startDate);
+    avgStart.setFullYear(avgStart.getFullYear() - 1);
 
-        // 実測データの範囲（グラフ用：前後に余白を持たせる）
-        const graphStart = new Date(startDate);
-        graphStart.setMonth(graphStart.getMonth() - 1);
-        const graphEnd = new Date(endDate);
-        graphEnd.setMonth(graphEnd.getMonth() + 7);
+    const avgEnd = new Date(avgStart);
+    avgEnd.setDate(avgEnd.getDate() + 364); // 365日分
 
-        // 平年値の範囲：1年前のstartDateから365日分
-        const avgStart = new Date(startDate);
-        avgStart.setFullYear(avgStart.getFullYear() - 1);
+    // 実測値と平年値を両方含むような範囲でフィルタ
+    const minDate = graphStart < avgStart ? graphStart : avgStart;
+    const maxDate = graphEnd > avgEnd ? graphEnd : avgEnd;
 
-        const avgEnd = new Date(avgStart);
-        avgEnd.setDate(avgEnd.getDate() + 364); // 365日分
+    const filteredData = filterData(globalData, minDate, maxDate);
 
-        // 実測値と平年値を両方含むような範囲でフィルタ
-        const minDate = graphStart < avgStart ? graphStart : avgStart;
-        const maxDate = graphEnd > avgEnd ? graphEnd : avgEnd;
-
-        const filteredData = filterData(data, minDate, maxDate);
-
-        // 栽培開始日を基準に平年値365日を作成する
-        const chartData = prepareComparisonData(filteredData, startDate);
-        updateDailyCharts(chartData);
-        document.getElementById("chartcanvas").style.display = "block";
-    };
-    reader.readAsArrayBuffer(file);
+    // 栽培開始日を基準に平年値365日を作成する
+    const chartData = prepareComparisonData(filteredData, startDate);
+    updateDailyCharts(chartData);
+    document.getElementById("chartcanvas").style.display = "block";
 }
-
 //グラフ描画
 function updateDailyCharts(chartData) {
     const { labels, temperature, maxTemperature, minTemperature, precipitation, sunshine } = chartData;
