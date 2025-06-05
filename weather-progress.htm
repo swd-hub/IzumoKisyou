@@ -93,7 +93,7 @@ canvas {
 }
 
 /* 入力フォームのスタイル */
-input[type="date"], input[type="file"], input[type="number"] {
+input[type="date"], input[type="number"] {
   width: 150px;
   padding: 8px 10px;
   font-size: 16px;
@@ -111,9 +111,6 @@ input[type="date"], input[type="file"], input[type="number"] {
   border-radius: 4px;
   cursor: pointer;
   margin-left: 4px; /* 任意で左に余白を追加 */
-}
-#fileInput{
- width:500px;
 }
 #chartcanvas
 {
@@ -264,15 +261,15 @@ document.getElementById("cultivationEndDate").addEventListener("change", updateM
  let dailyTempChart, dailyPrecChart, dailySunChart;
         let cumulativeTempChart, cumulativePrecChart, cumulativeSunChart;
 
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('updateButton').addEventListener('click', handleFileSelect, false);
-        });
+       document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('updateButton').addEventListener('click', updateChartsByDateRange, false);
+});
 
-        function shiftJISToUTF8(arrayBuffer) {
-            const decoder = new TextDecoder('shift-jis');
-            const uint8Array = new Uint8Array(arrayBuffer);
-            return decoder.decode(uint8Array);
-        }
+function shiftJISToUTF8(arrayBuffer) {
+    const decoder = new TextDecoder('shift-jis');
+    const uint8Array = new Uint8Array(arrayBuffer);
+    return decoder.decode(uint8Array);
+}
 
 
 //CSVのクレンジング
