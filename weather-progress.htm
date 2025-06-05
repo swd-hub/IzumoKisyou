@@ -137,8 +137,7 @@ input[type="date"], input[type="file"], input[type="number"] {
         <button onclick="window.open('images/WetherOption.png', '_blank')">過去の気象データ・ダウンロードで選ぶ表示オプション</button>
     </div>
     <br>
-    <h5>ファイルの選択ボタンにドラッグ＆ドロップすることで取り込み可能</h5>
-    <input type="file" id="fileInput" accept=".csv">
+<div id="csvDateRange" style="font-weight:bold; margin-top:1em; margin-bottom:1em;"></div>
     <div class="container">
         <form>
             <label for="cultivationStartDate">開始日:</label>
@@ -177,24 +176,70 @@ input[type="date"], input[type="file"], input[type="number"] {
 </div>
 </div>
     <script>
+// 1. fetchでCSVを読み込む
+async function fetchCsvAndInit() {
+    const response = await fetch('出雲日別値.csv');
+    if (!response.ok) {
+        alert('CSVファイルの取得に失敗しました');
+        return;
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const utf8Content = shiftJISToUTF8(arrayBuffer);
+    const data = parseCSV(utf8Content);
+
+    // データから最古・最新日付を抽出
+    const dates = data.map(d => d.date).sort((a, b) => a - b);
+    const oldest = dates[0];
+    const latest = dates[dates.length - 1];
+    document.getElementById('csvDateRange').textContent =
+        `データ期間：${oldest.getFullYear()}-${oldest.getMonth() + 1}-${oldest.getDate()} ～ ${latest.getFullYear()}-${latest.getMonth() + 1}-${latest.getDate()}`;
+
+    // 以降、従来のhandleFileSelect相当の処理
+    globalData = data; // グローバル変数にデータを保存
+    updateChartsByDateRange();
+}
+// ページ初期化時に実行
+window.onload = function() {
+    updateDateFields();
+    fetchCsvAndInit();
+};
+
+// 2. 日付変更時のグラフ更新
+function updateChartsByDateRange() {
+    const startDate = new Date(document.getElementById("cultivationStartDate").value);
+    const endDate = new Date(document.getElementById("cultivationEndDate").value);
+    // ...従来のグラフ描画処理
+    const graphStart = new Date(startDate);
+    graphStart.setMonth(graphStart.getMonth() - 1);
+    const graphEnd = new Date(endDate);
+    graphEnd.setMonth(graphEnd.getMonth() + 7);
+
+    const minDate = graphStart; // 必要に応じて調整
+    const maxDate = graphEnd;
+    const filteredData = filterData(globalData, minDate, maxDate);
+    const chartData = prepareComparisonData(filteredData, startDate);
+    updateDailyCharts(chartData);
+    document.getElementById("chartcanvas").style.display = "block";
+}
+
+// 3. 日付選択イベント時にグラフを更新
+document.getElementById("cultivationStartDate").addEventListener("change", updateChartsByDateRange);
+document.getElementById("cultivationEndDate").addEventListener("change", updateChartsByDateRange);
+// 必要に応じて「グラフ更新」ボタンもupdateChartsByDateRangeに変更
+	    
 function updateMainTitle() {
     const startDate = document.getElementById("cultivationStartDate").value;
     const endDate = document.getElementById("cultivationEndDate").value;
-    const fileInput = document.getElementById("fileInput");
-    const file = fileInput.files[0];
 
-    if (startDate && endDate && file) {
-        const startYear = new Date(startDate).getFullYear();
-        const endYear = new Date(endDate).getFullYear();
-        const filePrefix = file.name.substring(0, 2); // ファイル名の先頭2文字
-
-        const title = `${startYear}年-${endYear}年　気象経過（${filePrefix}）`;
-        document.getElementById("mainTitle").textContent = title;
-    }
+   if (startDate && endDate) {
+    const startYear = new Date(startDate).getFullYear();
+    const endYear = new Date(endDate).getFullYear();
+    const title = `${startYear}年-${endYear}年　気象経過`;
+    document.getElementById("mainTitle").textContent = title;
+}
 }
 
 // ファイル選択または日付変更後にタイトルを更新する
-document.getElementById("fileInput").addEventListener("change", updateMainTitle);
 document.getElementById("cultivationStartDate").addEventListener("change", updateMainTitle);
 document.getElementById("cultivationEndDate").addEventListener("change", updateMainTitle);
     
