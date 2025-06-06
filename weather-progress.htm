@@ -173,6 +173,12 @@ input[type="date"], input[type="number"] {
 </div>
 </div>
     <script>
+window.onload = function() {
+    updateDateFields();
+    fetchCsvAndInit();
+    updateMainTitle(); // 追加
+};
+	    
 // 1. fetchでCSVを読み込む
 async function fetchCsvAndInit() {
     const response = await fetch('出雲日別値.csv');
