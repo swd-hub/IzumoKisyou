@@ -389,10 +389,14 @@ function prepareComparisonData(data, startDate) {
     const endDate = new Date(startDate);
     endDate.setFullYear(endDate.getFullYear() + 1);
 
-    while (current < endDate) {
-        const md = `${current.getMonth() + 1}-${current.getDate()}`;
-        labels.push(md);
+        while (current < endDate) {
+        const yy = String(current.getFullYear()).slice(-2);
+        const mm = String(current.getMonth() + 1).padStart(2, '0');
+        const dd = String(current.getDate()).padStart(2, '0');
+        const ymd = `${yy}-${mm}-${dd}`;
+        labels.push(ymd);
 
+        const md = `${current.getMonth() + 1}-${current.getDate()}`;
         const d = dailyMap[md];
         const a = avgMap[md];
 
