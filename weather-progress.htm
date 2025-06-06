@@ -201,11 +201,6 @@ async function fetchCsvAndInit() {
     globalData = data; // グローバル変数にデータを保存
     updateChartsByDateRange();
 }
-// ページ初期化時に実行
-window.onload = function() {
-    updateDateFields();
-    fetchCsvAndInit();
-};
 
 // 2. 日付変更時のグラフ更新
 function updateChartsByDateRange() {
