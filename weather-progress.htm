@@ -233,11 +233,11 @@ document.getElementById("cultivationEndDate").addEventListener("change", updateC
 function updateMainTitle() {
     const startDate = document.getElementById("cultivationStartDate").value;
     const endDate = document.getElementById("cultivationEndDate").value;
-
-   if (startDate && endDate) {
-    const title = `気象経過　${startDate}後1年間`;
-    document.getElementById("mainTitle").textContent = title;
-}
+    console.log("startDate:", startDate, "endDate:", endDate);
+    if (startDate && endDate) {
+        const title = `気象経過　${startDate}後1年間`;
+        document.getElementById("mainTitle").textContent = title;
+    }
 }
 
 
