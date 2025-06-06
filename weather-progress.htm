@@ -125,9 +125,8 @@ input[type="date"], input[type="number"] {
     </style>
     </head>
 <body>
-    <!--h1>気象経過</h1-->
     
-    <h1 id="mainTitle">気象経過</h1>
+    <h1 id="mainTitle">気象経過（出雲）</h1>
 
     <div class="right-align">
         <button onclick="window.open(' https://www.data.jma.go.jp/gmd/risk/obsdl/index.php ', '_blank')">気象庁のサイトを開く</button>
@@ -230,7 +229,7 @@ function updateMainTitle() {
     const endDate = document.getElementById("cultivationEndDate").value;
     console.log("startDate:", startDate, "endDate:", endDate);
     if (startDate && endDate) {
-        const title = `気象経過　${startDate}後1年間`;
+        const title = `気象経過（出雲）　${startDate}後1年間`;
         document.getElementById("mainTitle").textContent = title;
     }
 }
