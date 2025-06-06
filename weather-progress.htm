@@ -175,7 +175,7 @@ input[type="date"], input[type="number"] {
     <script>
 // 1. fetchでCSVを読み込む
 async function fetchCsvAndInit() {
-    const response = await fetch('出雲日別値.csv');
+    const response = await fetch('斐川日別値.csv');
     if (!response.ok) {
         alert('CSVファイルの取得に失敗しました');
         return;
@@ -336,16 +336,19 @@ function filterData(data, graphStart, graphEnd) {
 }
 
 //日データと平年値の整理
-function prepareComparisonData(data, startDate, endDate) {
+function prepareComparisonData(data, startDate) {
+    const oneYearLater = new Date(startDate);
+    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+
     const dailyMap = {};
     const avgMap = {};
 
     data.forEach(d => {
-        const dateKey = `${d.date.getMonth() + 1}-${d.date.getDate()}`;
-        
+        const md = `${d.date.getMonth() + 1}-${d.date.getDate()}`;
+
         // 実測データ：栽培期間内だけ
-        if (d.date >= startDate && d.date <= endDate) {
-            dailyMap[dateKey] = {
+        if (d.date >= startDate && d.date < oneYearLater) {
+            dailyMap[md] = {
                 temperature: d.temperature,
                 precipitation: d.precipitation,
                 sunshine: d.sunshine,
@@ -354,29 +357,30 @@ function prepareComparisonData(data, startDate, endDate) {
             };
         }
 
-        // 平年値データ
+        // 平年値データ：あれば常に記録（null除く）
         if (d.avgTemperature !== null && !isNaN(d.avgTemperature)) {
-            avgMap[dateKey] = avgMap[dateKey] || {};
-            avgMap[dateKey].temperature = d.avgTemperature;
+            avgMap[md] = avgMap[md] || {};
+            avgMap[md].temperature = d.avgTemperature;
         }
         if (d.avgPrecipitation !== null && !isNaN(d.avgPrecipitation)) {
-            avgMap[dateKey] = avgMap[dateKey] || {};
-            avgMap[dateKey].precipitation = d.avgPrecipitation;
+            avgMap[md] = avgMap[md] || {};
+            avgMap[md].precipitation = d.avgPrecipitation;
         }
         if (d.avgSunshine !== null && !isNaN(d.avgSunshine)) {
-            avgMap[dateKey] = avgMap[dateKey] || {};
-            avgMap[dateKey].sunshine = d.avgSunshine;
+            avgMap[md] = avgMap[md] || {};
+            avgMap[md].sunshine = d.avgSunshine;
         }
         if (d.avgMaxTemperature !== null && !isNaN(d.avgMaxTemperature)) {
-            avgMap[dateKey] = avgMap[dateKey] || {};
-            avgMap[dateKey].maxTemperature = d.avgMaxTemperature;
+            avgMap[md] = avgMap[md] || {};
+            avgMap[md].maxTemperature = d.avgMaxTemperature;
         }
         if (d.avgMinTemperature !== null && !isNaN(d.avgMinTemperature)) {
-            avgMap[dateKey] = avgMap[dateKey] || {};
-            avgMap[dateKey].minTemperature = d.avgMinTemperature;
+            avgMap[md] = avgMap[md] || {};
+            avgMap[md].minTemperature = d.avgMinTemperature;
         }
     });
 
+    // ラベルを作成し、データを格納
     const labels = [];
     const dailyTemps = [], avgTemps = [];
     const dailyPrecs = [], avgPrecs = [];
@@ -385,24 +389,28 @@ function prepareComparisonData(data, startDate, endDate) {
     const dailyMinTemps = [], avgMinTemps = [];
 
     const current = new Date(startDate);
-    const endCurrent = new Date(endDate);
+    const endDate = new Date(startDate);
+    endDate.setFullYear(endDate.getFullYear() + 1);
 
-    while (current <= endCurrent) {
-        const yearTwoDigits = String(current.getFullYear()).slice(-2);
-        const md = `${yearTwoDigits}-${current.getMonth() + 1}-${current.getDate()}`;
+    while (current < endDate) {
+        const md = `${current.getMonth() + 1}-${current.getDate()}`;
         labels.push(md);
 
-        const d = dailyMap[`${current.getMonth() + 1}-${current.getDate()}`];
-        const a = avgMap[`${current.getMonth() + 1}-${current.getDate()}`];
+        const d = dailyMap[md];
+        const a = avgMap[md];
 
         dailyTemps.push(d ? d.temperature : null);
         avgTemps.push(a && a.temperature !== undefined ? a.temperature : null);
+
         dailyPrecs.push(d ? d.precipitation : null);
         avgPrecs.push(a && a.precipitation !== undefined ? a.precipitation : null);
+
         dailySuns.push(d ? d.sunshine : null);
         avgSuns.push(a && a.sunshine !== undefined ? a.sunshine : null);
+
         dailyMaxTemps.push(d ? d.maxTemperature : null);
         avgMaxTemps.push(a && a.maxTemperature !== undefined ? a.maxTemperature : null);
+
         dailyMinTemps.push(d ? d.minTemperature : null);
         avgMinTemps.push(a && a.minTemperature !== undefined ? a.minTemperature : null);
 
