@@ -229,10 +229,9 @@ function updateMainTitle() {
     const endDate = document.getElementById("cultivationEndDate").value;
 
    if (startDate && endDate) {
-    const startYear = new Date(startDate).getFullYear();
-    const endYear = new Date(endDate).getFullYear();
-    const title = `${startYear}年-${endYear}年　気象経過`;
+    const title = `気象経過　${startDate}後1年間`;
     document.getElementById("mainTitle").textContent = title;
+}
 }
 }
 
