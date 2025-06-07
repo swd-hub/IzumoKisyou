@@ -135,6 +135,7 @@ input[type="date"], input[type="file"], input[type="number"] {
 <body>
  
     <h1 id="mainTitle">気象経過</h1>
+    <span id="csvDates"></span>
 
     <div class="right-align">
         <button onclick="window.open(' https://www.data.jma.go.jp/gmd/risk/obsdl/index.php ', '_blank')">気象庁のサイトを開く</button>
@@ -181,6 +182,60 @@ input[type="date"], input[type="file"], input[type="number"] {
 </div>
 </div>
     <script>
+        let csvData = []; // グローバルに保持
+
+async function loadCSVAndRender() {
+    // CSVファイルをfetch
+    const response = await fetch('出雲日別値.csv');
+    const arrayBuffer = await response.arrayBuffer();
+    const utf8Content = shiftJISToUTF8(arrayBuffer);
+    csvData = parseCSV(utf8Content);
+
+    // CSVの日付範囲の取得
+    if (csvData.length > 0) {
+        const dates = csvData.map(d => d.date).sort((a, b) => a - b);
+        const minDate = dates[0], maxDate = dates[dates.length - 1];
+        document.getElementById("csvDates").textContent =
+            `CSV日付範囲: ${minDate.getFullYear()}-${minDate.getMonth() + 1}-${minDate.getDate()} ～ ${maxDate.getFullYear()}-${maxDate.getMonth() + 1}-${maxDate.getDate()}`;
+    }
+
+    // デフォルト日付をセット（従来通り）
+    updateDateFields();
+
+    // グラフ初期描画
+    handleGraphUpdate();
+}
+
+// CSV自動ロード後、グラフ更新
+function handleGraphUpdate() {
+    if (!csvData || csvData.length === 0) return;
+    const startDate = new Date(document.getElementById("cultivationStartDate").value);
+    const endDate = new Date(document.getElementById("cultivationEndDate").value);
+    // 必要ならmin/maxの範囲内に切り詰める処理を追加
+
+    // 以降、従来のグラフ描画ロジック
+    const avgStart = new Date(startDate);
+    avgStart.setFullYear(avgStart.getFullYear() - 1);
+    const avgEnd = new Date(avgStart);
+    avgEnd.setDate(avgEnd.getDate() + 364);
+    const minDate = Math.min(startDate, avgStart);
+    const maxDate = Math.max(endDate, avgEnd);
+    const filteredData = filterData(csvData, minDate, maxDate);
+    const chartData = prepareComparisonData(filteredData, startDate, endDate);
+    updateDailyCharts(chartData);
+    document.getElementById("chartcanvas").style.display = "block";
+}
+
+// ファイル選択やFileReader関連イベント・関数を全て削除
+// 例: document.getElementById("fileInput") ... など
+
+// 更新ボタンでグラフ再描画
+document.getElementById('updateButton').addEventListener('click', handleGraphUpdate);
+
+// ページ初期化時にCSVロード
+//window.onload = loadCSVAndRender;
+window.addEventListener('DOMContentLoaded', loadCSVAndRender);
+        
 function updateMainTitle() {
     const startDate = document.getElementById("cultivationStartDate").value;
     const endDate = document.getElementById("cultivationEndDate").value;
@@ -222,11 +277,6 @@ document.getElementById("cultivationEndDate").addEventListener("change", updateM
 
  let dailyTempChart, dailyPrecChart, dailySunChart;
         let cumulativeTempChart, cumulativePrecChart, cumulativeSunChart;
-
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('fileInput').addEventListener('change', handleFileSelect, false);
-            document.getElementById('updateButton').addEventListener('click', handleFileSelect, false);
-        });
 
         function shiftJISToUTF8(arrayBuffer) {
             const decoder = new TextDecoder('shift-jis');
