@@ -197,6 +197,7 @@ function handleGraphUpdate() {
     alert('開始日と終了日を入力してください');
     return;
   }
+
   const startDate = new Date(s);
   const endDate = new Date(e);
   if (isNaN(startDate) || isNaN(endDate)) {
@@ -209,27 +210,32 @@ function handleGraphUpdate() {
   }
 
   overlay.style.display = 'block';
-  setTimeout(() => {
+
+  // 🔧 修正：非同期関数で確実に overlay を閉じる
+  (async () => {
     try {
       const avgStart = new Date(startDate);
-      avgStart.setFullYear(avgStart.getFullYear() -1);
+      avgStart.setFullYear(avgStart.getFullYear() - 1);
       const avgEnd = new Date(avgStart);
-      avgEnd.setDate(avgEnd.getDate()+364);
+      avgEnd.setDate(avgEnd.getDate() + 364);
       const min = avgStart < startDate ? avgStart : startDate;
       const max = avgEnd > endDate ? avgEnd : endDate;
 
       const filtered = filterData(csvData, min, max);
       const chartData = prepareComparisonData(filtered, startDate, endDate);
       updateDailyCharts(chartData);
+
       document.getElementById('chartcanvas').style.display = 'block';
       updateMainTitle();
-    } catch(e) {
-      alert('グラフ描画中にエラー：' + e);
+    } catch (e) {
+      alert('グラフ描画中にエラーが発生しました：\n' + e);
+      console.error(e);
     } finally {
-      overlay.style.display = 'none';
+      overlay.style.display = 'none'; // ✅ ここで確実に読み込み中を消す
     }
-  }, 100);
+  })();
 }
+
 
 function updateMainTitle() {
   const s = document.getElementById('cultivationStartDate').value;
