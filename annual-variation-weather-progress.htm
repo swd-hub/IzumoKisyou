@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta name="description" content="気象データの日別値と平年値をグラフ化する。">  
+<meta name="description" content="気象データの日別値と平年値をグラフ化する。">
 <meta name="author" content="澤田泰人">
 <meta name="date" content="2025年5月4日">
 <meta charset="UTF-8">
@@ -152,7 +152,7 @@ input[type="date"], input[type="file"], input[type="number"] {
 let csvData = []; // グローバルに保持
 
 async function loadCSVAndRender() {
-    const response = await fetch('出雲日別値.csv');
+    const response = await fetch('出雲日別値.csv'); // CSVファイル名が「出雲日別値.csv」であることを前提としています
     const arrayBuffer = await response.arrayBuffer();
     const utf8Content = shiftJISToUTF8(arrayBuffer);
     csvData = parseCSV(utf8Content);
@@ -180,23 +180,20 @@ function handleGraphUpdate() {
     const startDateInput = document.getElementById("cultivationStartDate").value;
     const endDateInput = document.getElementById("cultivationEndDate").value;
 
-    // ✅ フリーズ対策：入力チェック
+    // ✅ フリーズ対策：入力チェック（アラートは表示せず、不完全な場合は処理を中断）
     if (!startDateInput || !endDateInput) {
-        alert("開始日と終了日を入力してください。");
-        return;
+        return; // 不完全な入力の場合は処理を中断
     }
 
     const startDate = new Date(startDateInput);
     const endDate = new Date(endDateInput);
 
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        alert("日付の形式が正しくありません。");
-        return;
+        return; // 日付の形式が正しくない場合は処理を中断
     }
 
     if (startDate > endDate) {
-        alert("開始日は終了日より前の日付を選んでください。");
-        return;
+        return; // 開始日が終了日より前の日付を選んでください。
     }
 
     // 平年値の範囲：1年前から1年間
@@ -219,11 +216,15 @@ function handleGraphUpdate() {
 function updateMainTitle() {
     const startDate = document.getElementById("cultivationStartDate").value;
     const endDate = document.getElementById("cultivationEndDate").value;
-    if (startDate && endDate) {
+    // 日付が有効かつ両方揃っている場合のみタイトルを更新
+    if (startDate && endDate && !isNaN(new Date(startDate).getTime()) && !isNaN(new Date(endDate).getTime())) {
         const startYear = new Date(startDate).getFullYear();
         const endYear = new Date(endDate).getFullYear();
         const title = `${startYear}年-${endYear}年　気象経過`;
         document.getElementById("mainTitle").textContent = title;
+    } else {
+        // 日付が無効または不完全な場合はデフォルトのタイトルを表示
+        document.getElementById("mainTitle").textContent = "気象経過　出雲";
     }
 }
 
@@ -242,11 +243,13 @@ function updateDateFields() {
 // イベント登録
 window.addEventListener('DOMContentLoaded', loadCSVAndRender);
 document.getElementById('updateButton').addEventListener('click', handleGraphUpdate);
-document.getElementById("cultivationStartDate").addEventListener("change", function(){
+
+// ★ここが修正点です：'change' イベントを 'blur' イベントに変更します★
+document.getElementById("cultivationStartDate").addEventListener("blur", function(){
     updateMainTitle();
     handleGraphUpdate();
 });
-document.getElementById("cultivationEndDate").addEventListener("change", function(){
+document.getElementById("cultivationEndDate").addEventListener("blur", function(){
     updateMainTitle();
     handleGraphUpdate();
 });
@@ -430,14 +433,14 @@ function updateDailyCharts(chartData) {
         'line', labels,
         [
             {
-                label: '日々の平均気温(℃)',
+                label: '日々の平均気温($${}^{\circ}\\text{C}$$)',
                 data: temperature.daily,
                 borderColor: 'rgba(255, 165, 0, 1)',
                 borderWidth: 3,
                 fill: false
             },
             {
-                label: '平年値気温(℃)',
+                label: '平年値気温($${}^{\circ}\\text{C}$$)',
                 data: temperature.avg,
                 borderColor: 'rgba(255, 165, 0, 0.5)',
                 borderDash: [5, 5],
@@ -445,14 +448,14 @@ function updateDailyCharts(chartData) {
                 fill: false
             },
             {
-                label: '日々の最高気温(℃)',
+                label: '日々の最高気温($${}^{\circ}\\text{C}$$)',
                 data: maxTemperature.daily,
                 borderColor: 'rgba(255, 99, 132, 1)',
                 borderWidth: 3,
                 fill: false
             },
             {
-                label: '平年値最高気温(℃)',
+                label: '平年値最高気温($${}^{\circ}\\text{C}$$)',
                 data: maxTemperature.avg,
                 borderColor: 'rgba(255, 99, 132, 0.5)',
                 borderDash: [5, 5],
@@ -460,14 +463,14 @@ function updateDailyCharts(chartData) {
                 fill: false
             },
             {
-                label: '日々の最低気温(℃)',
+                label: '日々の最低気温($${}^{\circ}\\text{C}$$)',
                 data: minTemperature.daily,
                 borderColor: 'rgba(54, 162, 235, 1)',
                 borderWidth: 3,
                 fill: false
             },
             {
-                label: '平年値最低気温(℃)',
+                label: '平年値最低気温($${}^{\circ}\\text{C}$$)',
                 data: minTemperature.avg,
                 borderColor: 'rgba(54, 162, 235, 0.5)',
                 borderDash: [5, 5],
