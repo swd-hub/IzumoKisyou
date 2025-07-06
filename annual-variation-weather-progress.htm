@@ -173,24 +173,44 @@ async function loadCSVAndRender() {
     handleGraphUpdate();
 }
 
-// グラフ再描画
+// グラフ再描画（修正版）
 function handleGraphUpdate() {
     if (!csvData || csvData.length === 0) return;
-    const startDate = new Date(document.getElementById("cultivationStartDate").value);
-    const endDate = new Date(document.getElementById("cultivationEndDate").value);
+
+    const startDateInput = document.getElementById("cultivationStartDate").value;
+    const endDateInput = document.getElementById("cultivationEndDate").value;
+
+    // ✅ フリーズ対策：入力チェック
+    if (!startDateInput || !endDateInput) {
+        alert("開始日と終了日を入力してください。");
+        return;
+    }
+
+    const startDate = new Date(startDateInput);
+    const endDate = new Date(endDateInput);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        alert("日付の形式が正しくありません。");
+        return;
+    }
+
+    if (startDate > endDate) {
+        alert("開始日は終了日より前の日付を選んでください。");
+        return;
+    }
 
     // 平年値の範囲：1年前から1年間
     const avgStart = new Date(startDate);
     avgStart.setFullYear(avgStart.getFullYear() - 1);
     const avgEnd = new Date(avgStart);
     avgEnd.setDate(avgEnd.getDate() + 364);
-    const minDate = Math.min(startDate, avgStart);
-    const maxDate = Math.max(endDate, avgEnd);
+    const minDate = new Date(Math.min(startDate, avgStart));
+    const maxDate = new Date(Math.max(endDate, avgEnd));
 
-    // データをフィルタリング
     const filteredData = filterData(csvData, minDate, maxDate);
     const chartData = prepareComparisonData(filteredData, startDate, endDate);
     updateDailyCharts(chartData);
+
     document.getElementById("chartcanvas").style.display = "block";
     updateMainTitle();
 }
