@@ -244,7 +244,7 @@ function updateDateFields() {
 window.addEventListener('DOMContentLoaded', loadCSVAndRender);
 document.getElementById('updateButton').addEventListener('click', handleGraphUpdate);
 
-// ★ここが修正点です：'change' イベントを 'blur' イベントに変更します★
+// 'change' イベントを 'blur' イベントに変更
 document.getElementById("cultivationStartDate").addEventListener("blur", function(){
     updateMainTitle();
     handleGraphUpdate();
@@ -433,14 +433,14 @@ function updateDailyCharts(chartData) {
         'line', labels,
         [
             {
-                label: '日々の平均気温($${}^{\circ}\\text{C}$$)',
+                label: '日々の平均気温(℃)', // ★修正点
                 data: temperature.daily,
                 borderColor: 'rgba(255, 165, 0, 1)',
                 borderWidth: 3,
                 fill: false
             },
             {
-                label: '平年値気温($${}^{\circ}\\text{C}$$)',
+                label: '平年値気温(℃)', // ★修正点
                 data: temperature.avg,
                 borderColor: 'rgba(255, 165, 0, 0.5)',
                 borderDash: [5, 5],
@@ -448,14 +448,14 @@ function updateDailyCharts(chartData) {
                 fill: false
             },
             {
-                label: '日々の最高気温($${}^{\circ}\\text{C}$$)',
+                label: '日々の最高気温(℃)', // ★修正点
                 data: maxTemperature.daily,
                 borderColor: 'rgba(255, 99, 132, 1)',
                 borderWidth: 3,
                 fill: false
             },
             {
-                label: '平年値最高気温($${}^{\circ}\\text{C}$$)',
+                label: '平年値最高気温(℃)', // ★修正点
                 data: maxTemperature.avg,
                 borderColor: 'rgba(255, 99, 132, 0.5)',
                 borderDash: [5, 5],
@@ -463,14 +463,14 @@ function updateDailyCharts(chartData) {
                 fill: false
             },
             {
-                label: '日々の最低気温($${}^{\circ}\\text{C}$$)',
+                label: '日々の最低気温(℃)', // ★修正点
                 data: minTemperature.daily,
                 borderColor: 'rgba(54, 162, 235, 1)',
                 borderWidth: 3,
                 fill: false
             },
             {
-                label: '平年値最低気温($${}^{\circ}\\text{C}$$)',
+                label: '平年値最低気温(℃)', // ★修正点
                 data: minTemperature.avg,
                 borderColor: 'rgba(54, 162, 235, 0.5)',
                 borderDash: [5, 5],
