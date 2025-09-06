@@ -185,7 +185,7 @@ tr:nth-child(even) td {
     // 自動でCSVをfetchして読み込む
     const status = document.getElementById('csvStatus');
     status.textContent = "CSV読込中...";
-    fetch('出雲日別値.csv');
+    fetch('出雲日別値.csv')
       .then(response => {
         if (!response.ok) throw new Error("ファイルが見つかりません");
         return response.arrayBuffer();
@@ -367,4 +367,5 @@ tr:nth-child(even) td {
 </script>
 </body>
 </html>
+
 
