@@ -180,71 +180,70 @@ tr:nth-child(even) td {
 
 <script>
 let weatherData = [];
+let chartInstance = null;
 
-// ページ読み込み時に開始日を当年の1月1日に設定
+// ページ読み込み時
 window.addEventListener("DOMContentLoaded", () => {
   const now = new Date();
-  const currentYear = now.getFullYear();
-  const jan1 = new Date(currentYear, 0, 1);
-  const yyyy = jan1.getFullYear();
-  const mm = String(jan1.getMonth() + 1).padStart(2, "0");
-  const dd = String(jan1.getDate()).padStart(2, "0");
-  document.getElementById("startDate").value = `${yyyy}-${mm}-${dd}`;
+  const yyyy = now.getFullYear();
+  document.getElementById("startDate").value = `${yyyy}-01-01`;
 
-  // CSVを自動でfetch
+  // サーバー上のCSVをfetch
   fetch("出雲日別値.csv")
-    .then(response => response.text())
-    .then(text => {
+    .then(response => {
+      if (!response.ok) throw new Error("CSVの取得に失敗");
+      return response.arrayBuffer(); // Shift-JIS → UTF-8用
+    })
+    .then(buffer => {
+      const text = new TextDecoder("shift-jis").decode(buffer);
       weatherData = parseCSV(text);
-      analyze(); // 読み込み後すぐに計算して表示
+      console.log("CSV読込完了:", weatherData.length, "件");
+
+      // 初回表示
+      const results = analyze();
+      updateTable(results);
+      updateChart(results);
     })
     .catch(err => console.error("CSV読み込みエラー:", err));
 });
 
-// CSVパース
+// --- CSVパース ---
 function parseCSV(content) {
-    const lines = content.trim().split('\n').filter(line => line.trim() !== "");
+  const lines = content.trim().split(/\r?\n/).filter(line => line.trim() !== "");
+  const dataLines = lines.slice(5); // データ本体は6行目以降
 
-    // データ行は6行目以降（index 5 以降）
-    const dataLines = lines.slice(5);
+  return dataLines.map(line => {
+    const cols = line.split(",");
+    const num = (v) => {
+      const n = parseFloat(v);
+      return isNaN(n) ? null : n;
+    };
 
-    return dataLines.map((line, i) => {
-        const cols = line.split(',');
+    const year = parseInt(cols[0]);
+    const month = parseInt(cols[1]);
+    const day = parseInt(cols[2]);
 
-        // 数値化ヘルパー
-        const num = (v) => {
-            const n = parseFloat(v);
-            return isNaN(n) ? null : n;
-        };
-
-        const year = parseInt(cols[0]);
-        const month = parseInt(cols[1]);
-        const day = parseInt(cols[2]);
-
-        return {
-            year,
-            month,
-            day,
-            date: new Date(year, month - 1, day),
-            temp: num(cols[3]),          // ★平均気温 → temp に統一
-            precipitation: num(cols[8]),
-            sunshine: num(cols[13]),
-            tmax: num(cols[18]),
-            tmin: num(cols[23])
-        };
-    });
+    return {
+      year,
+      month,
+      day,
+      date: new Date(year, month - 1, day),
+      temp: num(cols[3]),          // 平均気温
+      precipitation: num(cols[8]), // 降水量
+      sunshine: num(cols[13]),     // 日照時間
+      tmax: num(cols[18]),         // 最高気温
+      tmin: num(cols[23])          // 最低気温
+    };
+  });
 }
 
-// === 集計 ===
-let chartInstance = null;
-
+// --- 集計 ---
 function analyze() {
   if (!weatherData.length) {
     alert("気象データが読み込まれていません");
-    return;
+    return {};
   }
 
-  // 入力値取得
   const startDate = new Date(document.getElementById("startDate").value);
   const targetTemp = Number(document.getElementById("targetTemp").value);
   const tempMin = Number(document.getElementById("tempMin").value);
@@ -253,9 +252,8 @@ function analyze() {
 
   console.log("分析開始:", { startDate, targetTemp, tempMin, tempMax, useUpperLimit });
 
-  // 各年ごとに到達日算出
   const results = {};
-  let years = Array.from(new Set(weatherData.map(d => d.year))).sort((a,b)=>a-b);
+  const years = [...new Set(weatherData.map(d => d.year))].sort((a,b)=>a-b);
 
   years.forEach(year => {
     const start = new Date(year, startDate.getMonth(), startDate.getDate());
@@ -264,21 +262,19 @@ function analyze() {
     let days = 0;
     let reachDate = null;
 
-    console.log("----", year, "----");
     for (const rec of weatherData) {
       if (rec.year !== year) continue;
       if (rec.date < start) continue;
 
-      let t = rec.temp;  // temperature → temp に変更済み
+      let t = rec.temp;
+      if (t === null) continue;
+
       if (t < tempMin) t = 0;
       else if (useUpperLimit && t > tempMax) t = 0;
-      else if (!useUpperLimit && t > tempMax) t = tempMax - tempMin > 0 ? tempMax : t;
-      else t = t - tempMin;
+      else t = Math.max(0, t - tempMin);
 
-      if (t > 0) accTemp += t;
+      accTemp += t;
       days++;
-
-      if (days < 5) console.log(`${year}-${rec.month}-${rec.day}`, "t=", t, "acc=", accTemp);
 
       if (!reached && accTemp >= targetTemp) {
         reached = true;
@@ -292,27 +288,25 @@ function analyze() {
   });
 
   console.log("分析結果:", results);
+  return results;
 }
 
-
+// --- 表の更新 ---
 function updateTable(results) {
   const tbody = document.getElementById("resultTable").querySelector("tbody");
   tbody.innerHTML = "";
   Object.entries(results).forEach(([year, res]) => {
     const tr = document.createElement("tr");
-    const tdYear = document.createElement("td");
-    tdYear.textContent = year;
-    const tdDays = document.createElement("td");
-    tdDays.textContent = res.days !== null ? res.days : "-";
-    const tdDate = document.createElement("td");
-    tdDate.textContent = res.date ? formatDate(res.date) : "-";
-    tr.appendChild(tdYear);
-    tr.appendChild(tdDays);
-    tr.appendChild(tdDate);
+    tr.innerHTML = `
+      <td>${year}</td>
+      <td>${res.days !== null ? res.days : "-"}</td>
+      <td>${res.date ? formatDate(res.date) : "-"}</td>
+    `;
     tbody.appendChild(tr);
   });
 }
 
+// --- グラフの更新 ---
 function updateChart(results) {
   const ctx = document.getElementById("chart").getContext("2d");
   const labels = Object.keys(results);
@@ -326,7 +320,7 @@ function updateChart(results) {
       datasets: [{
         label: "到達日数",
         data,
-        backgroundColor: "#4caf50",
+        backgroundColor: "#4caf50"
       }]
     },
     options: {
@@ -354,6 +348,7 @@ function formatDate(date) {
 
 </body>
 </html>
+
 
 
 
