@@ -211,10 +211,10 @@ function parseCSV(content) {
     return dataLines.map((line, i) => {
         const cols = line.split(',');
 
-        // 数値化ヘルパー（空欄・品質情報が来ても安全）
+        // 数値化ヘルパー
         const num = (v) => {
             const n = parseFloat(v);
-            return isNaN(n) ? 0 : n;
+            return isNaN(n) ? null : n;
         };
 
         const year = parseInt(cols[0]);
@@ -225,16 +225,15 @@ function parseCSV(content) {
             year,
             month,
             day,
-            date: new Date(Date.UTC(year, month - 1, day)),
-            temperature: num(cols[3]),   // 平均気温(℃ 実測)
-            precipitation: num(cols[8]), // 降水量(mm 実測)
-            sunshine: num(cols[13]),     // 日照時間(時間 実測)
-            tmax: num(cols[18]),         // 最高気温(℃ 実測)
-            tmin: num(cols[23])          // 最低気温(℃ 実測)
+            date: new Date(year, month - 1, day),
+            temp: num(cols[3]),          // ★平均気温 → temp に統一
+            precipitation: num(cols[8]),
+            sunshine: num(cols[13]),
+            tmax: num(cols[18]),
+            tmin: num(cols[23])
         };
     });
 }
-
 
 // === 集計 ===
 let chartInstance = null;
@@ -355,6 +354,7 @@ function formatDate(date) {
 
 </body>
 </html>
+
 
 
 
