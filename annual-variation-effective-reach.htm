@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>有効積算温度の到達日予測</title>
+  <title>有効積算温度の到達日</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
 body {
@@ -66,16 +66,20 @@ form, .input-panel {
   cursor: pointer;
   font-size: 14px;
 }
-.input-panel button:hover {
+.input-panel button:disabled {
+  background-color: #bbb;
+  cursor: not-allowed;
+}
+.input-panel button:hover:enabled {
   background-color: #45a049;
 }
 /* ===== レイアウト ===== */
 .container {
   display: flex;
   gap: 20px;
-  margin-top: 10px;     /* ← 20px → 10px に縮めた */
+  margin-top: 10px;
   flex-wrap: wrap;
-  align-items: flex-start; /* グラフと表の上端を揃える */
+  align-items: flex-start;
 }
 
 .table-container, .chart-container {
@@ -93,7 +97,7 @@ table {
   width: 100%;
   font-size: 14px;
   margin-top: 10px;
-  table-layout: fixed; /* 列幅を固定 */
+  table-layout: fixed;
 }
 th, td {
   border: 1px solid #ccc;
@@ -107,15 +111,14 @@ tr:nth-child(even) td {
   background: #fafafa;
 }
 .table-container {
-  max-width: 600px; /* 表の最大幅を制限 */
+  max-width: 600px;
   width: 100%;
-  margin: 0 auto;    /* 中央寄せ（任意） */
+  margin: 0 auto;
 }
 #resultTable {
   table-layout: fixed;
   width: 100%;
 }
-
 
 /* ===== チャート ===== */
 .chart-container {
@@ -128,7 +131,6 @@ tr:nth-child(even) td {
   height: auto !important;
 }
 
-
 /* ===== 印刷用 ===== */
 @media print {
   * { margin: 0; padding: 0; }
@@ -139,9 +141,6 @@ tr:nth-child(even) td {
     page-break-after: auto;
   }
 }
-
-  </style>
-
   </style>
 </head>
 <body>
@@ -156,7 +155,7 @@ tr:nth-child(even) td {
     <input type="checkbox" id="useUpperLimit" checked>
     上限超過は無効とする
   </label>
-  <button onclick="analyze()">計算</button>
+  <button id="analyzeBtn" disabled>計算</button>
 </div>
 
 <div class="container">
@@ -180,13 +179,18 @@ tr:nth-child(even) td {
 
 <script>
 let weatherData = [];
-let chartInstance = null;
+let csvLoaded = false;
+
+window.resultChart = null;
 
 // ページ読み込み時
 window.addEventListener("DOMContentLoaded", () => {
   const now = new Date();
   const yyyy = now.getFullYear();
   document.getElementById("startDate").value = `${yyyy}-01-01`;
+
+  // 計算ボタン無効で開始
+  document.getElementById("analyzeBtn").disabled = true;
 
   // サーバー上のCSVをfetch
   fetch("出雲日別値.csv")
@@ -197,14 +201,34 @@ window.addEventListener("DOMContentLoaded", () => {
     .then(buffer => {
       const text = new TextDecoder("shift-jis").decode(buffer);
       weatherData = parseCSV(text);
-      console.log("CSV読込完了:", weatherData.length, "件");
+      csvLoaded = true;
+      document.getElementById("analyzeBtn").disabled = false; // 読み込みできたら有効
 
       // 初回表示
       const results = analyze();
       updateTable(results);
       updateChart(results);
     })
-    .catch(err => console.error("CSV読み込みエラー:", err));
+    .catch(err => {
+      console.error("CSV読み込みエラー:", err);
+      weatherData = [];
+      csvLoaded = false;
+      document.getElementById("analyzeBtn").disabled = true;
+    });
+
+  // 入力値変更でボタン有効化（データが読めていれば）
+  ["startDate","targetTemp","tempMin","tempMax","useUpperLimit"].forEach(id => {
+    document.getElementById(id).addEventListener("input", () => {
+      if (csvLoaded) document.getElementById("analyzeBtn").disabled = false;
+    });
+  });
+
+  // ボタン押下
+  document.getElementById("analyzeBtn").addEventListener("click", () => {
+    const results = analyze();
+    updateTable(results);
+    updateChart(results);
+  });
 });
 
 // --- CSVパース ---
@@ -250,8 +274,6 @@ function analyze() {
   const tempMax = Number(document.getElementById("tempMax").value);
   const useUpperLimit = document.getElementById("useUpperLimit").checked;
 
-  console.log("分析開始:", { startDate, targetTemp, tempMin, tempMax, useUpperLimit });
-
   const results = {};
   const years = [...new Set(weatherData.map(d => d.year))].sort((a,b)=>a-b);
 
@@ -279,7 +301,6 @@ function analyze() {
       if (!reached && accTemp >= targetTemp) {
         reached = true;
         reachDate = rec.date;
-        console.log("到達:", year, reachDate, "積算=", accTemp);
         break;
       }
     }
@@ -287,7 +308,6 @@ function analyze() {
     results[year] = reached ? { days, date: reachDate } : { days: null, date: null };
   });
 
-  console.log("分析結果:", results);
   return results;
 }
 
@@ -309,29 +329,47 @@ function updateTable(results) {
 // --- グラフの更新 ---
 function updateChart(results) {
   const ctx = document.getElementById("chart").getContext("2d");
-  const labels = Object.keys(results);
-  const data = labels.map(year => results[year].days);
 
-  if (chartInstance) chartInstance.destroy();
-  chartInstance = new Chart(ctx, {
+  const labels = Object.keys(results);
+  const values = labels.map(year => results[year].days);
+
+  // 指定のグラフ仕様で描画
+  if (window.resultChart) {
+    window.resultChart.destroy();
+  }
+  window.resultChart = new Chart(ctx, {
     type: "line",
     data: {
       labels,
       datasets: [{
-        label: "到達日数",
-        data,
-        backgroundColor: "#4caf50"
+        label: "目標積算温度到達日数",
+        data: values,
+        borderColor: "red",
+        borderWidth: 2,
+        fill: false
       }]
     },
     options: {
       responsive: true,
       plugins: {
-        legend: { display: false },
-        title: { display: true, text: "年ごとの到達日数" }
+        legend: {
+          labels: { font: { size: 16 } }
+        },
+        title: {
+          display: true,
+          text: "有効積算温度の到達日数",
+          font: { size: 24 }
+        }
       },
       scales: {
-        y: { beginAtZero: true, title: { display: true, text: "日数" } },
-        x: { title: { display: true, text: "年" } }
+        y: {
+          title: { display: true, text: "日数", font: { size: 16 } },
+          ticks: { font: { size: 14 } }
+        },
+        x: {
+          title: { display: true, text: "年", font: { size: 16 } },
+          ticks: { font: { size: 14 } }
+        }
       }
     }
   });
@@ -348,13 +386,3 @@ function formatDate(date) {
 
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
