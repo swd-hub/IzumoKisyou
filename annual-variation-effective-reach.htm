@@ -261,3 +261,100 @@ function analyze() {
     let reached = false;
     let days = 0;
     let reachDate = null;
+
+    for (const rec of weatherData) {
+      if (rec.year !== year) continue;
+      if (rec.date < start) continue;
+
+      let t = rec.temp;
+      if (t === null) continue;
+
+      if (t < tempMin) t = 0;
+      else if (useUpperLimit && t > tempMax) t = 0;
+      else t = Math.max(0, t - tempMin);
+
+      accTemp += t;
+      days++;
+
+      if (!reached && accTemp >= targetTemp) {
+        reached = true;
+        reachDate = rec.date;
+        console.log("到達:", year, reachDate, "積算=", accTemp);
+        break;
+      }
+    }
+
+    results[year] = reached ? { days, date: reachDate } : { days: null, date: null };
+  });
+
+  console.log("分析結果:", results);
+  return results;
+}
+
+// --- 表の更新 ---
+function updateTable(results) {
+  const tbody = document.getElementById("resultTable").querySelector("tbody");
+  tbody.innerHTML = "";
+  Object.entries(results).forEach(([year, res]) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${year}</td>
+      <td>${res.days !== null ? res.days : "-"}</td>
+      <td>${res.date ? formatDate(res.date) : "-"}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// --- グラフの更新 ---
+function updateChart(results) {
+  const ctx = document.getElementById("chart").getContext("2d");
+  const labels = Object.keys(results);
+  const data = labels.map(year => results[year].days);
+
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "到達日数",
+        data,
+        backgroundColor: "#4caf50"
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        title: { display: true, text: "年ごとの到達日数" }
+      },
+      scales: {
+        y: { beginAtZero: true, title: { display: true, text: "日数" } },
+        x: { title: { display: true, text: "年" } }
+      }
+    }
+  });
+}
+
+function formatDate(date) {
+  if (!(date instanceof Date)) date = new Date(date);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}/${m}/${d}`;
+}
+</script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
