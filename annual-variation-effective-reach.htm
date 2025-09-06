@@ -201,28 +201,36 @@ window.addEventListener("DOMContentLoaded", () => {
     .catch(err => console.error("CSV読み込みエラー:", err));
 });
 
-// CSVパース
+// CSVパース// CSVパース
 function parseCSV(content) {
     const lines = content.trim().split('\n').filter(line => line.trim() !== "");
 
     // データ行は5行目以降（index 4 以降）
     const dataLines = lines.slice(4);
 
-    return dataLines.map(line => {
+    const parsed = dataLines.map((line, idx) => {
         const cols = line.split(',');
 
-        return {
+        const obj = {
             year: parseInt(cols[0]),
             month: parseInt(cols[1]),
             day: parseInt(cols[2]),
             date: new Date(Date.UTC(cols[0], cols[1] - 1, cols[2])),
-            temperature: parseFloat(cols[3]) || 0,   // 平均気温(℃)
+            temp: parseFloat(cols[3]) || 0,          // 平均気温(℃) ← ★temperature → temp に統一
             precipitation: parseFloat(cols[8]) || 0, // 降水量の合計(mm)
             sunshine: parseFloat(cols[13]) || 0,     // 日照時間(時間)
             tmax: parseFloat(cols[17]) || 0,         // 最高気温(℃)
             tmin: parseFloat(cols[22]) || 0          // 最低気温(℃)
         };
+
+        // デバッグ出力
+        if (idx < 5) console.log("parseCSV sample:", obj);
+
+        return obj;
     });
+
+    console.log("parseCSV 完了:", parsed.length, "行");
+    return parsed;
 }
 
 
@@ -242,6 +250,8 @@ function analyze() {
   const tempMax = Number(document.getElementById("tempMax").value);
   const useUpperLimit = document.getElementById("useUpperLimit").checked;
 
+  console.log("分析開始:", { startDate, targetTemp, tempMin, tempMax, useUpperLimit });
+
   // 各年ごとに到達日算出
   const results = {};
   let years = Array.from(new Set(weatherData.map(d => d.year))).sort((a,b)=>a-b);
@@ -253,11 +263,12 @@ function analyze() {
     let days = 0;
     let reachDate = null;
 
+    console.log("----", year, "----");
     for (const rec of weatherData) {
       if (rec.year !== year) continue;
       if (rec.date < start) continue;
 
-      let t = rec.temp;
+      let t = rec.temp;  // temperature → temp に変更済み
       if (t < tempMin) t = 0;
       else if (useUpperLimit && t > tempMax) t = 0;
       else if (!useUpperLimit && t > tempMax) t = tempMax - tempMin > 0 ? tempMax : t;
@@ -265,9 +276,13 @@ function analyze() {
 
       if (t > 0) accTemp += t;
       days++;
+
+      if (days < 5) console.log(`${year}-${rec.month}-${rec.day}`, "t=", t, "acc=", accTemp);
+
       if (!reached && accTemp >= targetTemp) {
         reached = true;
         reachDate = rec.date;
+        console.log("到達:", year, reachDate, "積算=", accTemp);
         break;
       }
     }
@@ -275,12 +290,9 @@ function analyze() {
     results[year] = reached ? { days, date: reachDate } : { days: null, date: null };
   });
 
-  // 表更新
-  updateTable(results);
-
-  // グラフ更新
-  updateChart(results);
+  console.log("分析結果:", results);
 }
+
 
 function updateTable(results) {
   const tbody = document.getElementById("resultTable").querySelector("tbody");
@@ -341,6 +353,7 @@ function formatDate(date) {
 
 </body>
 </html>
+
 
 
 
