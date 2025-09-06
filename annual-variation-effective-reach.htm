@@ -127,10 +127,8 @@ tr:nth-child(even) td {
 </head>
 <body>
   <h2>有効積算温度の到達日表示</h2>
+  <!-- ボタン削除済み -->
   <div>
-    <br>
-    <!-- コメントアウト解除（fetchボタンが有効） -->
-    <button id="fetchCsvBtn">同フォルダの「出雲日別値.CSV」を読み込む</button>
     <span id="csvStatus" style="margin-left:8px;color:#888;"></span>
   </div>
   <div>
@@ -175,6 +173,7 @@ tr:nth-child(even) td {
   let weatherData = [];
 
   window.addEventListener("DOMContentLoaded", () => {
+    // 日付初期値設定
     const now = new Date();
     const currentYear = now.getFullYear();
     const jan1 = new Date(currentYear, 0, 1);
@@ -183,12 +182,10 @@ tr:nth-child(even) td {
     const dd = String(jan1.getDate()).padStart(2, "0");
     const formatted = `${yyyy}-${mm}-${dd}`;
     document.getElementById("startDate").value = formatted;
-  });
 
-  // fetchボタンでCSVを読み込む
-  document.getElementById('fetchCsvBtn').addEventListener('click', () => {
+    // 自動でCSVをfetchして読み込む
     const status = document.getElementById('csvStatus');
-    status.textContent = "読込中...";
+    status.textContent = "CSV読込中...";
     fetch('./出雲日別値.CSV')
       .then(response => {
         if (!response.ok) throw new Error("ファイルが見つかりません");
@@ -205,13 +202,13 @@ tr:nth-child(even) td {
         }
         weatherData = parseCSV(text);
         if (weatherData.length > 0) {
-          status.textContent = "読込完了";
+          status.textContent = "CSV読込完了";
         } else {
           status.textContent = "データ無し";
         }
       })
       .catch(err => {
-        status.textContent = "読込失敗: " + err.message;
+        status.textContent = "CSV読込失敗: " + err.message;
         weatherData = [];
       });
   });
@@ -250,3 +247,4 @@ tr:nth-child(even) td {
 </script>
 </body>
 </html>
+
