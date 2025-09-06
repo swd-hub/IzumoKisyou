@@ -314,7 +314,7 @@ function updateChart(results) {
 
   if (chartInstance) chartInstance.destroy();
   chartInstance = new Chart(ctx, {
-    type: "bar",
+    type: "line",
     data: {
       labels,
       datasets: [{
@@ -348,6 +348,7 @@ function formatDate(date) {
 
 </body>
 </html>
+
 
 
 
