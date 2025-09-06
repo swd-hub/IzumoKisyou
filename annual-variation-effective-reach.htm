@@ -126,122 +126,88 @@ tr:nth-child(even) td {
   </style>
 </head>
 <body>
-  <h2>有効積算温度の到達日表示</h2>
-  <div>
-    <span id="csvStatus" style="margin-left:8px;color:#888;"></span>
-  </div>
-  <div>
-    <label>開始日: <input type="date" id="startDate"></label><br><br>
-    <label>目標積算温度(℃): <input type="number" id="targetTemp" value="1000"></label><br><br>
-    <label>有効温度下限(℃): <input type="number" id="tempMin" value="10"></label><br>
-    <label>有効温度上限(℃): <input type="number" id="tempMax" value="30"></label><br><br>
-    <label>
-      <input type="checkbox" id="useUpperLimit" checked>
-      上限超過は無効とする
-    </label>
-    <button onclick="analyze()">計算</button>
-  </div>
+<h2>有効積算温度の到達日表示</h2>
 
-  <div class="container">
-    <div class="table-container">
-      <h3>年ごとの到達日一覧</h3>
-      <table id="resultTable">
-        <colgroup>
-          <col style="width: 20%;">
-          <col style="width: 20%;">
-          <col style="width: 20%;">
-        </colgroup>
-        <thead>
-          <tr>
-            <th>年</th>
-            <th>到達日数</th>
-            <th>到達日</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- データ行はJSで動的に追加 -->
-        </tbody>
-      </table>
-    </div>
-    <div class="chart-container">
-      <canvas id="chart"></canvas>
-    </div>
+<div>
+  <label>開始日: <input type="date" id="startDate"></label><br><br>
+  <label>目標積算温度(℃): <input type="number" id="targetTemp" value="1000"></label><br><br>
+  <label>有効温度下限(℃): <input type="number" id="tempMin" value="10"></label><br>
+  <label>有効温度上限(℃): <input type="number" id="tempMax" value="30"></label><br><br>
+  <label>
+    <input type="checkbox" id="useUpperLimit" checked>
+    上限超過は無効とする
+  </label>
+  <button onclick="analyze()">計算</button>
+</div>
+
+<div class="container">
+  <div class="table-container">
+    <h3>年ごとの到達日一覧</h3>
+    <table id="resultTable">
+      <thead>
+        <tr>
+          <th>年</th>
+          <th>到達日数</th>
+          <th>到達日</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
   </div>
+  <div class="chart-container">
+    <canvas id="chart"></canvas>
+  </div>
+</div>
 
 <script>
-  let weatherData = [];
+let weatherData = [];
 
-  window.addEventListener("DOMContentLoaded", () => {
-    // 日付初期値設定
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const jan1 = new Date(currentYear, 0, 1);
-    const yyyy = jan1.getFullYear();
-    const mm = String(jan1.getMonth() + 1).padStart(2, "0");
-    const dd = String(jan1.getDate()).padStart(2, "0");
-    const formatted = `${yyyy}-${mm}-${dd}`;
-    document.getElementById("startDate").value = formatted;
+// ページ読み込み時に開始日を当年の1月1日に設定
+window.addEventListener("DOMContentLoaded", () => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const jan1 = new Date(currentYear, 0, 1);
+  const yyyy = jan1.getFullYear();
+  const mm = String(jan1.getMonth() + 1).padStart(2, "0");
+  const dd = String(jan1.getDate()).padStart(2, "0");
+  document.getElementById("startDate").value = `${yyyy}-${mm}-${dd}`;
 
-    // 自動でCSVをfetchして読み込む
-    const status = document.getElementById('csvStatus');
-    status.textContent = "CSV読込中...";
-    fetch('出雲日別値.csv')
-      .then(response => {
-        if (!response.ok) throw new Error("ファイルが見つかりません");
-        return response.arrayBuffer();
-      })
-      .then(buffer => {
-        // Shift-JISデコード
-        let text;
-        try {
-          text = new TextDecoder('shift_jis').decode(buffer);
-        } catch(e) {
-          text = new TextDecoder('sjis').decode(buffer);
-        }
-        weatherData = parseCSV(text);
-        if (weatherData.length > 0) {
-          status.textContent = "CSV読込完了";
-        } else {
-          status.textContent = "データ無し";
-        }
-      })
-      .catch(err => {
-        status.textContent = "CSV読込失敗: " + err.message;
-        weatherData = [];
-      });
-  });
+  // CSVを自動でfetch
+  fetch("出雲日別値.csv")
+    .then(response => response.text())
+    .then(text => {
+      weatherData = parseCSV(text);
+      analyze(); // 読み込み後すぐに計算して表示
+    })
+    .catch(err => console.error("CSV読み込みエラー:", err));
+});
 
-  function parseCSV(text) {
-    const lines = text.trim().split("\n").map(l => l.replace(/\r$/, ''));
-    if (lines.length < 3) {
-      alert("CSVの行数が不足しています");
-      return [];
-    }
-    const headers = lines[2].split(",");
-    const yearIndex = headers.findIndex(h => h === "年");
-    const monthIndex = headers.findIndex(h => h === "月");
-    const dayIndex = headers.findIndex(h => h === "日");
-    const tempIndex = headers.findIndex(h => h === "平均気温(℃)");
+// CSVパース
+function parseCSV(text) {
+  const lines = text.trim().split("\n");
+  const headers = lines[2].split(",");
+  const yearIndex = headers.findIndex(h => h === "年");
+  const monthIndex = headers.findIndex(h => h === "月");
+  const dayIndex = headers.findIndex(h => h === "日");
+  const tempIndex = headers.findIndex(h => h === "平均気温(℃)");
 
-    if ([yearIndex, monthIndex, dayIndex, tempIndex].includes(-1)) {
-      alert("CSVの列名が正しく認識できません");
-      return [];
-    }
-
-    let data = [];
-    for (let i = 3; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
-      const cells = lines[i].split(",");
-      const year = parseInt(cells[yearIndex]);
-      const month = parseInt(cells[monthIndex]);
-      const day = parseInt(cells[dayIndex]);
-      const temp = parseFloat(cells[tempIndex]);
-      if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(temp)) continue;
-      data.push({ year, month, day, temp });
-    }
-    return data;
+  if ([yearIndex, monthIndex, dayIndex, tempIndex].includes(-1)) {
+    alert("CSVの列名が正しく認識できません");
+    return [];
   }
 
+  const data = [];
+  for (let i = 3; i < lines.length; i++) {
+    const cells = lines[i].split(",");
+    const year = parseInt(cells[yearIndex]);
+    const month = parseInt(cells[monthIndex]);
+    const day = parseInt(cells[dayIndex]);
+    const temp = parseFloat(cells[tempIndex]);
+    const date = new Date(year, month - 1, day);
+    if (!isNaN(temp)) data.push({ date, temp });
+  }
+  return data;
+}
   // ここから analyze関数等を追加
   let chartInstance = null;
 
@@ -367,5 +333,6 @@ tr:nth-child(even) td {
 </script>
 </body>
 </html>
+
 
 
