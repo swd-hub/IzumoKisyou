@@ -146,10 +146,10 @@ tr:nth-child(even) td {
   <h2>有効積算温度の到達日表示</h2>
 
   <div>
-  <br>
-    <label>CSVファイル読み込み: 
-      <input type="file" id="fileInput">
-    </label>
+    <br>
+    <!-- ファイル選択ボタンをfetch読み込みボタンに変更 -->
+    <button id="fetchCsvBtn">同フォルダの「出雲日別値.CSV」を読み込む</button>
+    <span id="csvStatus" style="margin-left:8px;color:#888;"></span>
   </div>
   <div>
     <label>開始日: <input type="date" id="startDate"></label><br><br>
@@ -203,19 +203,44 @@ tr:nth-child(even) td {
     document.getElementById("startDate").value = formatted;
   });
 
-  document.getElementById('fileInput').addEventListener('change', e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = evt => {
-      const text = evt.target.result;
-      weatherData = parseCSV(text);
-    };
-    reader.readAsText(file, "Shift-JIS");
+  // fetchボタンでCSVを読み込む
+  document.getElementById('fetchCsvBtn').addEventListener('click', () => {
+    const status = document.getElementById('csvStatus');
+    status.textContent = "読込中...";
+    fetch('./出雲日別値.CSV')
+      .then(response => {
+        if (!response.ok) throw new Error("ファイルが見つかりません");
+        return response.arrayBuffer();
+      })
+      .then(buffer => {
+        // Shift-JISデコード
+        let text;
+        try {
+          text = new TextDecoder('shift_jis').decode(buffer);
+        } catch(e) {
+          // Firefoxなどでは 'sjis' も試す
+          text = new TextDecoder('sjis').decode(buffer);
+        }
+        weatherData = parseCSV(text);
+        if (weatherData.length > 0) {
+          status.textContent = "読込完了";
+        } else {
+          status.textContent = "データ無し";
+        }
+      })
+      .catch(err => {
+        status.textContent = "読込失敗: " + err.message;
+        weatherData = [];
+      });
   });
 
   function parseCSV(text) {
-    const lines = text.trim().split("\n");
+    const lines = text.trim().split("\n").map(l => l.replace(/\r$/, ''));
+    // 3行目（index 2）がヘッダ
+    if (lines.length < 3) {
+      alert("CSVの行数が不足しています");
+      return [];
+    }
     const headers = lines[2].split(",");
     const yearIndex = headers.findIndex(h => h === "年");
     const monthIndex = headers.findIndex(h => h === "月");
@@ -229,6 +254,7 @@ tr:nth-child(even) td {
 
     let data = [];
     for (let i = 3; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
       const cells = lines[i].split(",");
       const year = parseInt(cells[yearIndex]);
       const month = parseInt(cells[monthIndex]);
