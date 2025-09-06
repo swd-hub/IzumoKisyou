@@ -183,36 +183,29 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 // CSVパース
-function parseCSV(text) {
-  const lines = text.trim().split("\n");
-  const headers = lines[2].split(",").map(h => h.trim());
+function parseCSV(content) {
+    const lines = content.trim().split('\n').filter(line => line.trim() !== "");
 
-  // 列番号を特定
-  const yearIndex  = headers.findIndex(h => h === "年");
-  const monthIndex = headers.findIndex(h => h === "月");
-  const dayIndex   = headers.findIndex(h => h === "日");
-  const tempIndex  = headers.findIndex(h => h === "平均気温(℃)");
+    // データ行は5行目以降（index 4 以降）
+    const dataLines = lines.slice(4);
 
-  if ([yearIndex, monthIndex, dayIndex, tempIndex].includes(-1)) {
-    alert("CSVの列名が正しく認識できません");
-    return [];
-  }
+    return dataLines.map(line => {
+        const cols = line.split(',');
 
-  const data = [];
-  for (let i = 3; i < lines.length; i++) {
-    const cells = lines[i].split(",");
-    const year  = parseInt(cells[yearIndex]);
-    const month = parseInt(cells[monthIndex]);
-    const day   = parseInt(cells[dayIndex]);
-    const temp  = parseFloat(cells[tempIndex]);
-    const date  = new Date(year, month - 1, day);
-
-    if (!isNaN(temp)) {
-      data.push({ year, month, day, date, temp });
-    }
-  }
-  return data;
+        return {
+            year: parseInt(cols[0]),
+            month: parseInt(cols[1]),
+            day: parseInt(cols[2]),
+            date: new Date(Date.UTC(cols[0], cols[1] - 1, cols[2])),
+            temperature: parseFloat(cols[3]) || 0,   // 平均気温(℃)
+            precipitation: parseFloat(cols[8]) || 0, // 降水量の合計(mm)
+            sunshine: parseFloat(cols[13]) || 0,     // 日照時間(時間)
+            tmax: parseFloat(cols[17]) || 0,         // 最高気温(℃)
+            tmin: parseFloat(cols[22]) || 0          // 最低気温(℃)
+        };
+    });
 }
+
 
 // === 集計 ===
 let chartInstance = null;
@@ -329,6 +322,7 @@ function formatDate(date) {
 
 </body>
 </html>
+
 
 
 
