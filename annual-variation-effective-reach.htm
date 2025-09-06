@@ -185,11 +185,13 @@ window.addEventListener("DOMContentLoaded", () => {
 // CSVパース
 function parseCSV(text) {
   const lines = text.trim().split("\n");
-  const headers = lines[2].split(",");
-  const yearIndex = headers.findIndex(h => h === "年");
+  const headers = lines[2].split(",").map(h => h.trim());
+
+  // 列番号を特定
+  const yearIndex  = headers.findIndex(h => h === "年");
   const monthIndex = headers.findIndex(h => h === "月");
-  const dayIndex = headers.findIndex(h => h === "日");
-  const tempIndex = headers.findIndex(h => h === "平均気温(℃)");
+  const dayIndex   = headers.findIndex(h => h === "日");
+  const tempIndex  = headers.findIndex(h => h === "平均気温(℃)");
 
   if ([yearIndex, monthIndex, dayIndex, tempIndex].includes(-1)) {
     alert("CSVの列名が正しく認識できません");
@@ -199,140 +201,135 @@ function parseCSV(text) {
   const data = [];
   for (let i = 3; i < lines.length; i++) {
     const cells = lines[i].split(",");
-    const year = parseInt(cells[yearIndex]);
+    const year  = parseInt(cells[yearIndex]);
     const month = parseInt(cells[monthIndex]);
-    const day = parseInt(cells[dayIndex]);
-    const temp = parseFloat(cells[tempIndex]);
-    const date = new Date(year, month - 1, day);
-    if (!isNaN(temp)) data.push({ date, temp });
+    const day   = parseInt(cells[dayIndex]);
+    const temp  = parseFloat(cells[tempIndex]);
+    const date  = new Date(year, month - 1, day);
+
+    if (!isNaN(temp)) {
+      data.push({ year, month, day, date, temp });
+    }
   }
   return data;
 }
-  // ここから analyze関数等を追加
-  let chartInstance = null;
 
-  function analyze() {
-    if (!weatherData.length) {
-      alert("気象データが読み込まれていません");
-      return;
+// === 集計 ===
+let chartInstance = null;
+
+function analyze() {
+  if (!weatherData.length) {
+    alert("気象データが読み込まれていません");
+    return;
+  }
+
+  // 入力値取得
+  const startDate = new Date(document.getElementById("startDate").value);
+  const targetTemp = Number(document.getElementById("targetTemp").value);
+  const tempMin = Number(document.getElementById("tempMin").value);
+  const tempMax = Number(document.getElementById("tempMax").value);
+  const useUpperLimit = document.getElementById("useUpperLimit").checked;
+
+  // 各年ごとに到達日算出
+  const results = {};
+  let years = Array.from(new Set(weatherData.map(d => d.year))).sort((a,b)=>a-b);
+
+  years.forEach(year => {
+    const start = new Date(year, startDate.getMonth(), startDate.getDate());
+    let accTemp = 0;
+    let reached = false;
+    let days = 0;
+    let reachDate = null;
+
+    for (const rec of weatherData) {
+      if (rec.year !== year) continue;
+      if (rec.date < start) continue;
+
+      let t = rec.temp;
+      if (t < tempMin) t = 0;
+      else if (useUpperLimit && t > tempMax) t = 0;
+      else if (!useUpperLimit && t > tempMax) t = tempMax - tempMin > 0 ? tempMax : t;
+      else t = t - tempMin;
+
+      if (t > 0) accTemp += t;
+      days++;
+      if (!reached && accTemp >= targetTemp) {
+        reached = true;
+        reachDate = rec.date;
+        break;
+      }
     }
-    // 入力値取得
-    const startDate = document.getElementById("startDate").value;
-    const targetTemp = Number(document.getElementById("targetTemp").value);
-    const tempMin = Number(document.getElementById("tempMin").value);
-    const tempMax = Number(document.getElementById("tempMax").value);
-    const useUpperLimit = document.getElementById("useUpperLimit").checked;
 
-    // 各年ごとに到達日算出
-    const results = {};
-    let years = Array.from(new Set(weatherData.map(d => d.year))).sort((a,b)=>a-b);
+    results[year] = reached ? { days, date: reachDate } : { days: null, date: null };
+  });
 
-    years.forEach(year => {
-      // 開始日～年末までのデータ抽出
-      const start = new Date(startDate);
-      if (start.getFullYear() > year) return; // 開始日がその年より後ならスキップ
-      let accTemp = 0;
-      let reached = false;
-      let days = 0;
-      let reachDate = null;
+  // 表更新
+  updateTable(results);
 
-      for (const rec of weatherData) {
-        if (rec.year !== year) continue;
-        const dt = new Date(rec.year, rec.month - 1, rec.day);
-        if (dt < start) continue;
+  // グラフ更新
+  updateChart(results);
+}
 
-        let t = rec.temp;
-        if (t < tempMin) t = 0;
-        else if (useUpperLimit && t > tempMax) t = 0;
-        else if (!useUpperLimit && t > tempMax) t = tempMax - tempMin > 0 ? tempMax : t;
-        else t = t - tempMin;
+function updateTable(results) {
+  const tbody = document.getElementById("resultTable").querySelector("tbody");
+  tbody.innerHTML = "";
+  Object.entries(results).forEach(([year, res]) => {
+    const tr = document.createElement("tr");
+    const tdYear = document.createElement("td");
+    tdYear.textContent = year;
+    const tdDays = document.createElement("td");
+    tdDays.textContent = res.days !== null ? res.days : "-";
+    const tdDate = document.createElement("td");
+    tdDate.textContent = res.date ? formatDate(res.date) : "-";
+    tr.appendChild(tdYear);
+    tr.appendChild(tdDays);
+    tr.appendChild(tdDate);
+    tbody.appendChild(tr);
+  });
+}
 
-        if (t > 0) accTemp += t;
-        days++;
-        if (!reached && accTemp >= targetTemp) {
-          reached = true;
-          reachDate = dt;
-          break; // その年は到達したら打ち切り
-        }
-      }
-      if (reached) {
-        results[year] = {
-          days,
-          date: reachDate,
-        };
-      } else {
-        results[year] = {
-          days: null,
-          date: null,
-        };
-      }
-    });
+function updateChart(results) {
+  const ctx = document.getElementById("chart").getContext("2d");
+  const labels = Object.keys(results);
+  const data = labels.map(year => results[year].days);
 
-    // 表更新
-    updateTable(results);
-
-    // グラフ更新
-    updateChart(results);
-  }
-
-  function updateTable(results) {
-    const tbody = document.getElementById("resultTable").querySelector("tbody");
-    tbody.innerHTML = "";
-    Object.entries(results).forEach(([year, res]) => {
-      const tr = document.createElement("tr");
-      const tdYear = document.createElement("td");
-      tdYear.textContent = year;
-      const tdDays = document.createElement("td");
-      tdDays.textContent = res.days !== null ? res.days : "-";
-      const tdDate = document.createElement("td");
-      tdDate.textContent = res.date ? formatDate(res.date) : "-";
-      tr.appendChild(tdYear);
-      tr.appendChild(tdDays);
-      tr.appendChild(tdDate);
-      tbody.appendChild(tr);
-    });
-  }
-
-  function updateChart(results) {
-    const ctx = document.getElementById("chart").getContext("2d");
-    const labels = Object.keys(results);
-    const data = labels.map(year => results[year].days);
-
-    if (chartInstance) chartInstance.destroy();
-    chartInstance = new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels,
-        datasets: [{
-          label: "到達日数",
-          data,
-          backgroundColor: "#4caf50",
-        }]
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: "到達日数",
+        data,
+        backgroundColor: "#4caf50",
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        title: { display: true, text: "年ごとの到達日数" }
       },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { display: false },
-          title: { display: true, text: "年ごとの到達日数" }
-        },
-        scales: {
-          y: { beginAtZero: true, title: { display: true, text: "日数" } },
-          x: { title: { display: true, text: "年" } }
-        }
+      scales: {
+        y: { beginAtZero: true, title: { display: true, text: "日数" } },
+        x: { title: { display: true, text: "年" } }
       }
-    });
-  }
+    }
+  });
+}
 
-  function formatDate(date) {
-    if (!(date instanceof Date)) date = new Date(date);
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    return `${y}/${m}/${d}`;
-  }
+function formatDate(date) {
+  if (!(date instanceof Date)) date = new Date(date);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}/${m}/${d}`;
+}
 </script>
+
 </body>
 </html>
+
 
 
 
