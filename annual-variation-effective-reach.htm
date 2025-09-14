@@ -263,90 +263,108 @@ function parseCSV(content) {
 
 // --- 集計 ---
 function analyze() {
-  if (!weatherData.length) {
-    alert("気象データが読み込まれていません");
-    return {};
+  if (weatherData.length === 0) {
+    alert("先にCSVを読み込んでください");
+    return;
   }
 
-  const startDate = new Date(document.getElementById("startDate").value);
-  const targetTemp = Number(document.getElementById("targetTemp").value);
-  const tempMin = Number(document.getElementById("tempMin").value);
-  const tempMax = Number(document.getElementById("tempMax").value);
+  const startDateInput = new Date(document.getElementById("startDate").value);
+  const targetTemp = parseFloat(document.getElementById("targetTemp").value);
+  const tempMin = parseFloat(document.getElementById("tempMin").value);
+  const tempMax = parseFloat(document.getElementById("tempMax").value);
   const useUpperLimit = document.getElementById("useUpperLimit").checked;
 
+  const startMonth = startDateInput.getMonth();
+  const startDay = startDateInput.getDate();
+
   const results = {};
-  const years = [...new Set(weatherData.map(d => d.year))].sort((a,b)=>a-b);
+  const years = [...new Set(weatherData.map(d => d.date.getFullYear()))];
 
   years.forEach(year => {
-    const start = new Date(year, startDate.getMonth(), startDate.getDate());
-    let accTemp = 0;
-    let reached = false;
+    const startDate = new Date(year, startMonth, startDay);
+    let total = 0;
     let days = 0;
-    let reachDate = null;
+    let reachedDate = null;
 
-    for (const rec of weatherData) {
-      if (rec.year !== year) continue;
-      if (rec.date < start) continue;
+    for (const row of weatherData) {
+      if (row.date < startDate) continue;
 
-      let t = rec.temp;
-      if (t === null) continue;
+      const rowYear = row.date.getFullYear();
+      if (rowYear !== year && rowYear !== year + 1) break; // 翌年まで許容
 
-      if (t < tempMin) t = 0;
-      else if (useUpperLimit && t > tempMax) t = 0;
-      else t = Math.max(0, t - tempMin);
+      let effTemp = 0;
+      if (row.temp >= tempMin) {
+        let adjusted = row.temp;
 
-      accTemp += t;
+        if (useUpperLimit && row.temp > tempMax) {
+          adjusted = tempMax;
+        } else if (!useUpperLimit && row.temp > tempMax) {
+          adjusted = NaN;
+        }
+
+        if (!isNaN(adjusted) && adjusted >= tempMin) {
+          effTemp = adjusted - tempMin;
+        }
+      }
+
+      total += effTemp;
       days++;
 
-      if (!reached && accTemp >= targetTemp) {
-        reached = true;
-        reachDate = rec.date;
+      if (total >= targetTemp) {
+        reachedDate = new Date(startDate);
+        reachedDate.setDate(startDate.getDate() + days);
         break;
       }
     }
 
-    results[year] = reached ? { days, date: reachDate } : { days: null, date: null };
+    results[year] = {
+      reached: !!reachedDate,
+      days: reachedDate ? days : null,
+      date: reachedDate
+    };
   });
 
-  // ★ 翌年にコピーする処理を追加 ★
+  // === 翌年に繰り返す処理 ===
   const repeated = {};
-  for (const y in results) {
-    if (results[y].date) {
+  for (const y of Object.keys(results)) {
+    const r = results[y];
+    if (r.reached) {
       const nextYear = parseInt(y) + 1;
-      const d = new Date(results[y].date);
-      d.setFullYear(nextYear); // 翌年にずらす
-      repeated[nextYear] = { days: results[y].days, date: d };
+      const d = new Date(r.date);
+      d.setFullYear(nextYear); // 翌年の日付にずらす
+      repeated[nextYear] = {
+        reached: true,
+        days: r.days,
+        date: d
+      };
     }
   }
   Object.assign(results, repeated);
 
-  return results;
-}
+  // === 表に出力 ===
+  const table = document.getElementById("resultTable");
+  table.innerHTML = "<tr><th>年</th><th>到達日数</th><th>到達日</th></tr>";
+  const labels = [];
+  const values = [];
 
+  for (const year of Object.keys(results).sort()) {
+    const r = results[year];
+    if (r.reached) {
+      const d = r.date;
+      const dStr =
+        d.getFullYear() + "-" +
+        (d.getMonth() + 1).toString().padStart(2, "0") + "-" +
+        d.getDate().toString().padStart(2, "0");
+      table.innerHTML += `<tr><td>${year}</td><td>${r.days}</td><td>${dStr}</td></tr>`;
+      labels.push(year);
+      values.push(r.days);
+    } else {
+      table.innerHTML += `<tr><td>${year}</td><td>—</td><td>未到達</td></tr>`;
+    }
+  }
 
-// --- 表の更新 ---
-function updateTable(results) {
-  const tbody = document.getElementById("resultTable").querySelector("tbody");
-  tbody.innerHTML = "";
-  Object.entries(results).forEach(([year, res]) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${year}</td>
-      <td>${res.days !== null ? res.days : "-"}</td>
-      <td>${res.date ? formatDate(res.date) : "-"}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-// --- グラフの更新 ---
-function updateChart(results) {
+  // === グラフ表示 ===
   const ctx = document.getElementById("chart").getContext("2d");
-
-  const labels = Object.keys(results);
-  const values = labels.map(year => results[year].days);
-
-  // 指定のグラフ仕様で描画
   if (window.resultChart) {
     window.resultChart.destroy();
   }
@@ -388,6 +406,7 @@ function updateChart(results) {
   });
 }
 
+
 function formatDate(date) {
   if (!(date instanceof Date)) date = new Date(date);
   const y = date.getFullYear();
@@ -399,5 +418,6 @@ function formatDate(date) {
 
 </body>
 </html>
+
 
 
