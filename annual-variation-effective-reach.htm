@@ -308,8 +308,21 @@ function analyze() {
     results[year] = reached ? { days, date: reachDate } : { days: null, date: null };
   });
 
+  // ★ 翌年にコピーする処理を追加 ★
+  const repeated = {};
+  for (const y in results) {
+    if (results[y].date) {
+      const nextYear = parseInt(y) + 1;
+      const d = new Date(results[y].date);
+      d.setFullYear(nextYear); // 翌年にずらす
+      repeated[nextYear] = { days: results[y].days, date: d };
+    }
+  }
+  Object.assign(results, repeated);
+
   return results;
 }
+
 
 // --- 表の更新 ---
 function updateTable(results) {
@@ -386,4 +399,5 @@ function formatDate(date) {
 
 </body>
 </html>
+
 
