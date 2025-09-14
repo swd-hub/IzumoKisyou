@@ -441,47 +441,10 @@ function shiftJISToUTF8(arrayBuffer) {
 
 
 //
-        function shiftJISToUTF8(arrayBuffer) {
-            const decoder = new TextDecoder('shift-jis');
-            const uint8Array = new Uint8Array(arrayBuffer);
-            return decoder.decode(uint8Array);
-        }
-       
+  
 
 
-/*function handleFileSelect() {
-    const file = document.getElementById("fileInput").files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function (e) {
-        const utf8Content = shiftJISToUTF8(e.target.result);
-        //console.log('UTF-8 Content:', utf8Content);
-        const data = parseCSV(utf8Content);
-        //console.log('Parsed Data:', data);
-       
-        // 日付を1日進める必要なし
-        data.forEach(d => d.date.setDate(d.date.getDate()));
-        const startDate = new Date(document.getElementById("cultivationStartDate").value);
-        const endDate = new Date(document.getElementById("cultivationEndDate").value);
-        const tempMin = parseFloat(document.getElementById("tempMin").value);
-        const tempMax = parseFloat(document.getElementById("tempMax").value);
-        const graphStart = new Date(startDate);
-        graphStart.setMonth(graphStart.getMonth());  // - 1トル
-        const graphEnd = new Date(endDate);
-        graphEnd.setMonth(graphEnd.getMonth());  //  + 1トル
-        const filteredData = filterData(data, graphStart, graphEnd);
-       
-        //console.log("filteredData",filteredData);
-       
-        const cumulativeData = calculateCumulativeDataWithTable(filteredData, startDate, endDate, tempMin, tempMax);
-        updateTable(cumulativeData.table);
-       
-        //console.log('cumulativeData',cumulativeData);
-       
-    };
-       
-    reader.readAsArrayBuffer(file);
-}*/
+
        
     function filterData(data, graphStart, graphEnd) {
         return data.filter(d => d.date >= graphStart && d.date <= graphEnd);
@@ -934,3 +897,4 @@ const labels = Object.values(cumulativeResults).map(result => {
 </script>
 </body>
 </html>
+
