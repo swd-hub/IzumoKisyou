@@ -180,7 +180,6 @@ tr:nth-child(even) td {
 <script>
 let weatherData = [];
 let csvLoaded = false;
-
 window.resultChart = null;
 
 // ページ読み込み時
@@ -205,9 +204,7 @@ window.addEventListener("DOMContentLoaded", () => {
       document.getElementById("analyzeBtn").disabled = false; // 読み込みできたら有効
 
       // 初回表示
-      const results = analyze();
-      updateTable(results);
-      updateChart(results);
+      analyze();
     })
     .catch(err => {
       console.error("CSV読み込みエラー:", err);
@@ -225,9 +222,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // ボタン押下
   document.getElementById("analyzeBtn").addEventListener("click", () => {
-    const results = analyze();
-    updateTable(results);
-    updateChart(results);
+    analyze();
   });
 });
 
@@ -324,7 +319,7 @@ function analyze() {
     };
   });
 
-  // === 翌年に繰り返す処理 ===
+  // 翌年に繰り返す処理
   const repeated = {};
   for (const y of Object.keys(results)) {
     const r = results[y];
@@ -341,7 +336,7 @@ function analyze() {
   }
   Object.assign(results, repeated);
 
-  // === 表に出力 ===
+  // 表に出力
   const table = document.getElementById("resultTable");
   table.innerHTML = "<tr><th>年</th><th>到達日数</th><th>到達日</th></tr>";
   const labels = [];
@@ -351,10 +346,7 @@ function analyze() {
     const r = results[year];
     if (r.reached) {
       const d = r.date;
-      const dStr =
-        d.getFullYear() + "-" +
-        (d.getMonth() + 1).toString().padStart(2, "0") + "-" +
-        d.getDate().toString().padStart(2, "0");
+      const dStr = formatDate(d);
       table.innerHTML += `<tr><td>${year}</td><td>${r.days}</td><td>${dStr}</td></tr>`;
       labels.push(year);
       values.push(r.days);
@@ -363,7 +355,7 @@ function analyze() {
     }
   }
 
-  // === グラフ表示 ===
+  // グラフ表示
   const ctx = document.getElementById("chart").getContext("2d");
   if (window.resultChart) {
     window.resultChart.destroy();
@@ -406,18 +398,20 @@ function analyze() {
   });
 }
 
-
+// --- 日付フォーマット ---
 function formatDate(date) {
   if (!(date instanceof Date)) date = new Date(date);
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`; 
+  return `${y}-${m}-${d}`;
 }
 </script>
 
+
 </body>
 </html>
+
 
 
 
