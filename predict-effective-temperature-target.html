@@ -64,6 +64,13 @@ button {
   border-radius: 4px;
   cursor: pointer;
 }
+button:disabled {
+  background-color: #bbb;
+  cursor: not-allowed;
+}
+button:hover:enabled {
+  background-color: #45a049;
+}
 
 form {
   flex: 1;
@@ -149,7 +156,7 @@ td {
     border-bottom: 1px solid #ddd;
 }
 
-input[type="date"], input[type="file"], input[type="number"] {
+input[type="date"], input[type="number"] {
   width: 100%;
   padding: 12px;
   font-size: 16px;
@@ -176,6 +183,10 @@ input[type="date"], input[type="file"], input[type="number"] {
   background-color: white;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+#loadStatus {
+  margin: 10px 20px;
+  font-weight: bold;
 }
 .switch {
     position: relative;
@@ -233,9 +244,7 @@ input:checked + .slider:before {
     <div class="right-align">
         <button onclick="window.open('https://www.data.jma.go.jp/gmd/risk/obsdl/index.php', '_blank')">気象庁のサイトを開く</button>
     </div>
-    <br>
-    <h5>ファイルの選択ボタンにドラッグ＆ドロップすることで取り込み可能</h5>
-    <input type="file" id="fileInput" accept=".csv">
+    <div id="loadStatus">出雲日別値.csv を読み込み中...</div>
     <div class="container">
         <form>
             <label for="cultivationStartDate">栽培開始日:</label>
@@ -255,7 +264,7 @@ input:checked + .slider:before {
             <input type="number" id="targetTempSum" step="1" placeholder="例：2500">
             <label for="recentDays">予測に使う直近日数:</label>
             <input type="number" value="14" id="recentDays" step="1" min="2">
-            <button type="button" id="updateButton">データ更新／再計算</button>
+            <button type="button" id="updateButton" disabled>データ更新／再計算</button>
         </form>
 
         <div class="table-container">
@@ -296,91 +305,87 @@ input:checked + .slider:before {
         </div>
 
     <script>
-function updateDateFields() {
- const currentDate = new Date();
- const currentYear = currentDate.getFullYear();
- const currentMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
- const currentDay = String(currentDate.getDate()).padStart(2, '0');
-
- const startDateInput = document.getElementById('cultivationStartDate');
- const endDateInput = document.getElementById('cultivationEndDate');
-
- startDateInput.value = `${currentYear}-01-01`;
- endDateInput.value = `${currentYear}-${currentMonth}-${currentDay}`;
-}
-
-window.onload = updateDateFields;
-
 let dailyTempChart;
 let cumulativeTempChart;
-let rawData = [];  // パース済みの生データ（date, temperature）
+let rawData = [];   // パース済みの生データ（date, temperature）
+let csvLoaded = false;
 
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('fileInput').addEventListener('change', handleFileSelect, false);
+function updateDateFields() {
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const currentDay = String(currentDate.getDate()).padStart(2, '0');
+
+    document.getElementById('cultivationStartDate').value = `${currentYear}-01-01`;
+    document.getElementById('cultivationEndDate').value = `${currentYear}-${currentMonth}-${currentDay}`;
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    updateDateFields();
+
+    document.getElementById('updateButton').disabled = true;
+
+    // サーバー上のCSVをfetch（出雲日別値.csv：年,月,日,平均気温,... の固定列形式）
+    fetch("出雲日別値.csv")
+        .then(response => {
+            if (!response.ok) throw new Error("CSVの取得に失敗");
+            return response.arrayBuffer();
+        })
+        .then(buffer => {
+            const text = new TextDecoder("shift-jis").decode(buffer);
+            rawData = parseCSV(text);
+            csvLoaded = true;
+            document.getElementById('updateButton').disabled = false;
+            document.getElementById('loadStatus').textContent = `出雲日別値.csv を読み込みました（${rawData.length}件）`;
+
+            runCalculation();
+
+            const dailyTitles = document.getElementsByClassName("dailyTitle");
+            for (let el of dailyTitles) el.style.display = "block";
+            const cumulativeTitles = document.getElementsByClassName("cumulativeTitle");
+            for (let el of cumulativeTitles) el.style.display = "block";
+        })
+        .catch(err => {
+            console.error("CSV読み込みエラー:", err);
+            rawData = [];
+            csvLoaded = false;
+            document.getElementById('updateButton').disabled = true;
+            document.getElementById('loadStatus').textContent = "出雲日別値.csv の読み込みに失敗しました。同じフォルダにファイルがあるか確認してください。";
+        });
+
+    // 入力値変更で再計算ボタンを有効化（データが読めていれば）
+    ["cultivationStartDate", "cultivationEndDate", "tempMin", "tempMax", "tempSumToggle", "targetTempSum", "recentDays"].forEach(id => {
+        document.getElementById(id).addEventListener('input', () => {
+            if (csvLoaded) document.getElementById('updateButton').disabled = false;
+        });
+    });
+
     document.getElementById('updateButton').addEventListener('click', function() {
-        if (!rawData.length) {
-            alert('先にCSVファイルを選択してください。');
+        if (!csvLoaded) {
+            alert('CSVデータがまだ読み込まれていません。');
             return;
         }
         runCalculation();
     }, false);
 });
 
-function shiftJISToUTF8(arrayBuffer) {
-    const decoder = new TextDecoder('shift-jis');
-    const uint8Array = new Uint8Array(arrayBuffer);
-    return decoder.decode(uint8Array);
-}
-
-// パース：年・月・日・平均気温のみを取り出す
+// パース：出雲日別値.csv（年,月,日,平均気温,...の固定列形式）から年・月・日・平均気温を取り出す
 function parseCSV(content) {
-    const lines = content.trim().split('\n').filter(line => line.trim() !== "");
+    const lines = content.trim().split(/\r?\n/).filter(line => line.trim() !== "");
+    const dataLines = lines.slice(5); // データ本体は6行目以降
 
-    let lines1 = lines[2].split(',');
-    let lines2 = lines[3].split(',');
-    let lines3 = lines[4].split(',');
-
-    let combinedHead = [];
-    for (let i = 0; i < lines1.length; i++) {
-        combinedHead.push(lines1[i].replace(/\r/g, '') + lines2[i].replace(/\r/g, '') + lines3[i].replace(/\r/g, ''));
-    }
-
-    const targetHeaders = ["年", "月", "日", "平均気温(℃)"];
-    let indicesToSelect = targetHeaders.map(header => combinedHead.indexOf(header));
-
-    const dataLines = lines.slice(6).map(line => {
-        const cols = line.split(',');
-        const selectedCols = indicesToSelect.map(index => index >= 0 ? cols[index] || '0' : '0');
-        return selectedCols.join(',');
-    });
-
-    dataLines.unshift(targetHeaders.join(','));
-
-    return dataLines.slice(1).map(line => {
+    return dataLines.map(line => {
         const cols = line.split(",");
+        const year = parseInt(cols[0]);
+        const month = parseInt(cols[1]);
+        const day = parseInt(cols[2]);
+        const temp = parseFloat(cols[3]);
+
         return {
-            date: new Date(Date.UTC(cols[0], cols[1] - 1, cols[2])),
-            temperature: parseFloat(cols[3]) || 0
+            date: new Date(Date.UTC(year, month - 1, day)),
+            temperature: isNaN(temp) ? 0 : temp
         };
     });
-}
-
-function handleFileSelect() {
-    const file = document.getElementById("fileInput").files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function (e) {
-        const utf8Content = shiftJISToUTF8(e.target.result);
-        rawData = parseCSV(utf8Content);
-        runCalculation();
-
-        const dailyTitles = document.getElementsByClassName("dailyTitle");
-        for (let el of dailyTitles) el.style.display = "block";
-        const cumulativeTitles = document.getElementsByClassName("cumulativeTitle");
-        for (let el of cumulativeTitles) el.style.display = "block";
-    };
-    reader.readAsArrayBuffer(file);
 }
 
 function parseDateInputAsUTC(value) {
